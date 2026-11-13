@@ -52,6 +52,10 @@ Supabase (Postgres + Auth), deployed on Vercel.
 - Explain **what changed and why**, rather than merely listing files.
 - Keep commit subjects concise and omit trailing periods.
 
+## Pull Requests
+
+- Follow `.github/pull_request_template.md` when creating pull requests.
+
 ## Done means
 
 Lint, typecheck, and tests pass; README and any other documentation updated if behavior changed.
