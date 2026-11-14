@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { resolveAuthRedirect } from "@/lib/auth/redirects";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
@@ -28,7 +29,23 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+
+  const target = resolveAuthRedirect({
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+    isAuthenticated: Boolean(data?.claims),
+  });
+
+  if (target) {
+    const redirect = NextResponse.redirect(new URL(target, request.url));
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    ["cache-control", "expires", "pragma"].forEach((name) => {
+      const value = response.headers.get(name);
+      if (value !== null) redirect.headers.set(name, value);
+    });
+    return redirect;
+  }
 
   // Return this exact response; a new one would drop the refreshed cookies.
   return response;
