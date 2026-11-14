@@ -23,7 +23,11 @@ Supabase (Postgres + Auth), deployed on Vercel.
 - RLS enabled on every table; default grants revoked; minimal grants per role.
 - One policy per operation; INSERT/UPDATE policies use WITH CHECK.
 - Secret/service key is server-only; never import it into client code.
-- All mutations go through route handlers in app/api/, validated with Zod.
+- Domain business logic and data access use Next.js Route Handlers.
+- Prefer idiomatic framework patterns for other operations, including
+  Server Actions for authentication forms.
+- Validate untrusted inputs with Zod at server boundaries.
+- Enforce authentication and authorization for protected operations.
 - Never log PHI (appointment reasons, names) to the console or error output.
 
 ## Structure
