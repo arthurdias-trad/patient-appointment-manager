@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
+
+if (existsSync(".env.local")) {
+  process.loadEnvFile(".env.local");
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -14,10 +19,19 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
-  webServer: {
-    command: "npm run build && npm run start -- --hostname 127.0.0.1 --port 3100",
-    url: "http://127.0.0.1:3100",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: "node tests/e2e/support/hibp-stub-server.ts",
+      url: "http://127.0.0.1:3101/health",
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command:
+        "npm run build && npm run start -- --hostname 127.0.0.1 --port 3100",
+      url: "http://127.0.0.1:3100",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { HIBP_RANGE_URL: "http://127.0.0.1:3101/range/" },
+    },
+  ],
 });
