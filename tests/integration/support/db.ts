@@ -32,3 +32,15 @@ export async function signUpUser(metadata?: Record<string, string>) {
 
   return { client, userId: data.user.id };
 }
+
+const SLOT_BASE = Date.parse("2031-01-06T15:00:00Z");
+const HOUR_MS = 60 * 60 * 1000;
+const SLOT_MS = 30 * 60 * 1000;
+
+export function slot(n: number) {
+  const start = SLOT_BASE + n * HOUR_MS;
+  return {
+    starts_at: new Date(start).toISOString(),
+    ends_at: new Date(start + SLOT_MS).toISOString(),
+  };
+}

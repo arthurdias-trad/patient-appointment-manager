@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(60);
 
 select is_empty(
   $$
@@ -69,6 +69,31 @@ select policies_are('public', 'providers', '{"Patients can view all providers"}'
 select policy_cmd_is('public', 'providers', 'Patients can view all providers', 'SELECT', 'Patients can view all providers applies to SELECT');
 select policy_roles_are('public', 'providers', 'Patients can view all providers', '{authenticated}', 'Patients can view all providers applies to authenticated');
 
+select table_privs_are('public', 'appointments', 'anon', '{}', 'anon has no privileges on public.appointments');
+select table_privs_are('public', 'appointments', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments at table level');
+select table_privs_are('public', 'appointments', 'service_role', '{}', 'service_role has no privileges on public.appointments');
+
+select column_privs_are('public', 'appointments', 'provider_id', 'authenticated', '{INSERT,SELECT,UPDATE}', 'authenticated can select, insert, and update public.appointments.provider_id');
+select column_privs_are('public', 'appointments', 'starts_at', 'authenticated', '{INSERT,SELECT,UPDATE}', 'authenticated can select, insert, and update public.appointments.starts_at');
+select column_privs_are('public', 'appointments', 'ends_at', 'authenticated', '{INSERT,SELECT,UPDATE}', 'authenticated can select, insert, and update public.appointments.ends_at');
+select column_privs_are('public', 'appointments', 'reason', 'authenticated', '{INSERT,SELECT,UPDATE}', 'authenticated can select, insert, and update public.appointments.reason');
+select column_privs_are('public', 'appointments', 'status', 'authenticated', '{SELECT,UPDATE}', 'authenticated can select and update public.appointments.status');
+select column_privs_are('public', 'appointments', 'id', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments.id');
+select column_privs_are('public', 'appointments', 'patient_id', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments.patient_id');
+select column_privs_are('public', 'appointments', 'created_at', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments.created_at');
+select column_privs_are('public', 'appointments', 'updated_at', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments.updated_at');
+select column_privs_are('public', 'appointments', 'deleted_at', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments.deleted_at');
+
+select policies_are('public', 'appointments', '{"Patients can view own appointments","Patients can create appointments","Patients can update own appointments"}', 'public.appointments has only its select, insert, and update policies');
+select policy_cmd_is('public', 'appointments', 'Patients can view own appointments', 'SELECT', 'Patients can view own appointments applies to SELECT');
+select policy_cmd_is('public', 'appointments', 'Patients can create appointments', 'INSERT', 'Patients can create appointments applies to INSERT');
+select policy_cmd_is('public', 'appointments', 'Patients can update own appointments', 'UPDATE', 'Patients can update own appointments applies to UPDATE');
+select policy_roles_are('public', 'appointments', 'Patients can view own appointments', '{authenticated}', 'Patients can view own appointments applies to authenticated');
+select policy_roles_are('public', 'appointments', 'Patients can create appointments', '{authenticated}', 'Patients can create appointments applies to authenticated');
+select policy_roles_are('public', 'appointments', 'Patients can update own appointments', '{authenticated}', 'Patients can update own appointments applies to authenticated');
+
+select has_index('public', 'appointments', 'appointments_patient_id_starts_at_idx', 'public.appointments has appointments_patient_id_starts_at_idx');
+
 select schema_privs_are('private', 'anon', '{}', 'anon has no privileges on schema private');
 select schema_privs_are('private', 'authenticated', '{}', 'authenticated has no privileges on schema private');
 select schema_privs_are('private', 'service_role', '{}', 'service_role has no privileges on schema private');
@@ -83,6 +108,71 @@ select is(
 select function_privs_are('private', 'handle_new_user', '{}', 'anon', '{}', 'anon cannot execute private.handle_new_user');
 select function_privs_are('private', 'handle_new_user', '{}', 'authenticated', '{}', 'authenticated cannot execute private.handle_new_user');
 select function_privs_are('private', 'handle_new_user', '{}', 'service_role', '{}', 'service_role cannot execute private.handle_new_user');
+
+select trigger_is('public', 'appointments', 'check_not_in_past_or_canceled', 'private', 'check_not_in_past_or_canceled', 'check_not_in_past_or_canceled calls private.check_not_in_past_or_canceled');
+select isnt_definer('private', 'check_not_in_past_or_canceled', '{}', 'private.check_not_in_past_or_canceled is security invoker');
+select is(
+  (select p.proconfig from pg_catalog.pg_proc p where p.oid = pg_catalog.to_regprocedure('private.check_not_in_past_or_canceled()')),
+  array['search_path=""'],
+  'private.check_not_in_past_or_canceled pins an empty search_path'
+);
+select function_privs_are('private', 'check_not_in_past_or_canceled', '{}', 'anon', '{}', 'anon cannot execute private.check_not_in_past_or_canceled');
+select function_privs_are('private', 'check_not_in_past_or_canceled', '{}', 'authenticated', '{}', 'authenticated cannot execute private.check_not_in_past_or_canceled');
+select function_privs_are('private', 'check_not_in_past_or_canceled', '{}', 'service_role', '{}', 'service_role cannot execute private.check_not_in_past_or_canceled');
+
+select trigger_is('public', 'appointments', 'update_appointment_timestamp', 'private', 'update_appointment_timestamp', 'update_appointment_timestamp calls private.update_appointment_timestamp');
+select isnt_definer('private', 'update_appointment_timestamp', '{}', 'private.update_appointment_timestamp is security invoker');
+select is(
+  (select p.proconfig from pg_catalog.pg_proc p where p.oid = pg_catalog.to_regprocedure('private.update_appointment_timestamp()')),
+  array['search_path=""'],
+  'private.update_appointment_timestamp pins an empty search_path'
+);
+select function_privs_are('private', 'update_appointment_timestamp', '{}', 'anon', '{}', 'anon cannot execute private.update_appointment_timestamp');
+select function_privs_are('private', 'update_appointment_timestamp', '{}', 'authenticated', '{}', 'authenticated cannot execute private.update_appointment_timestamp');
+select function_privs_are('private', 'update_appointment_timestamp', '{}', 'service_role', '{}', 'service_role cannot execute private.update_appointment_timestamp');
+
+set local role postgres;
+insert into auth.users (id, email)
+values ('10000000-0000-4000-8000-000000000001', 'past-lock@example.test');
+alter table public.appointments disable trigger check_not_in_past_or_canceled;
+insert into public.appointments (id, patient_id, provider_id, starts_at, ends_at, reason, created_at, updated_at)
+values (
+  '20000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000001',
+  '00000000-0000-4000-8000-000000000001',
+  now() - interval '15 minutes',
+  now() + interval '15 minutes',
+  'Synthetic follow-up',
+  now() - interval '1 hour',
+  now() - interval '1 hour'
+);
+alter table public.appointments enable trigger check_not_in_past_or_canceled;
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+
+select throws_ok(
+  $$update public.appointments set reason = 'Synthetic check-in' where id = '20000000-0000-4000-8000-000000000001'$$,
+  'P0001',
+  null,
+  'started appointment cannot be edited'
+);
+select throws_ok(
+  $$update public.appointments set status = 'cancelled' where id = '20000000-0000-4000-8000-000000000001'$$,
+  'P0001',
+  null,
+  'started appointment cannot be cancelled'
+);
+select throws_ok(
+  $$update public.appointments
+    set starts_at = now() + interval '1 day', ends_at = now() + interval '1 day 30 minutes'
+    where id = '20000000-0000-4000-8000-000000000001'$$,
+  'P0001',
+  null,
+  'started appointment cannot be moved to the future'
+);
+
+reset role;
 
 select * from finish();
 
