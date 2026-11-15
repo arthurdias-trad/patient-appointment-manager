@@ -35,6 +35,8 @@ Supabase (Postgres + Auth), deployed on Vercel.
 - app/api/: route handlers (business rules + validation)
 - lib/supabase/: server and browser clients (@supabase/ssr)
 - supabase/migrations/: all schema changes; never edit applied migrations
+- supabase/seed.sql: synthetic provider/demo data
+- supabase/tests/: pgTAP database tests
 
 ## Testing
 
@@ -46,6 +48,7 @@ Supabase (Postgres + Auth), deployed on Vercel.
 
 - npm run dev / npm run lint / npm run typecheck / npm test / npm run test:e2e
 - supabase start / supabase db reset / supabase migration new <name>
+- npx supabase test db / npm run db:types
 
 ## Commits
 
