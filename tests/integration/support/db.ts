@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import type { Database } from "../../../lib/supabase/database.types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -13,7 +14,7 @@ export const PROVIDER_IDS = [
 ] as const;
 
 export function anonClient() {
-  return createClient(url, publishableKey, {
+  return createClient<Database>(url, publishableKey, {
     auth: { persistSession: false },
   });
 }

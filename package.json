@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky",
+    "db:types": "supabase gen types typescript --schema public > lib/supabase/database.types.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ci": "vitest run",
