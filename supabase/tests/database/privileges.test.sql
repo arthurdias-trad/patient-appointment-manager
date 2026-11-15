@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(24);
 
 select is_empty(
   $$
@@ -60,6 +60,14 @@ select table_privs_are('public', 'profiles', 'service_role', '{}', 'service_role
 select policies_are('public', 'profiles', '{"Patients can view own profile"}', 'public.profiles has only Patients can view own profile');
 select policy_cmd_is('public', 'profiles', 'Patients can view own profile', 'SELECT', 'Patients can view own profile applies to SELECT');
 select policy_roles_are('public', 'profiles', 'Patients can view own profile', '{authenticated}', 'Patients can view own profile applies to authenticated');
+
+select table_privs_are('public', 'providers', 'anon', '{}', 'anon has no privileges on public.providers');
+select table_privs_are('public', 'providers', 'authenticated', '{SELECT}', 'authenticated can only select public.providers');
+select table_privs_are('public', 'providers', 'service_role', '{}', 'service_role has no privileges on public.providers');
+
+select policies_are('public', 'providers', '{"Patients can view all providers"}', 'public.providers has only Patients can view all providers');
+select policy_cmd_is('public', 'providers', 'Patients can view all providers', 'SELECT', 'Patients can view all providers applies to SELECT');
+select policy_roles_are('public', 'providers', 'Patients can view all providers', '{authenticated}', 'Patients can view all providers applies to authenticated');
 
 select schema_privs_are('private', 'anon', '{}', 'anon has no privileges on schema private');
 select schema_privs_are('private', 'authenticated', '{}', 'authenticated has no privileges on schema private');

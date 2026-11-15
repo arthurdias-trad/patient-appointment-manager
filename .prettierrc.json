@@ -6,7 +6,7 @@
       "options": {
         "parser": "postgresql",
         "tabWidth": 2,
-        "printWidth": 100,
+        "printWidth": 120,
         "sqlKeywordCase": "lower",
         "sqlLiteralCase": "lower",
         "sqlTypeCase": "lower"
