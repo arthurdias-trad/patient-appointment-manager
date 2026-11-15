@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { beforeAll, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 import { PROVIDER_IDS, anonClient, signUpUser, slot } from "../support/db";
 
 type TestUser = Awaited<ReturnType<typeof signUpUser>>;
@@ -79,13 +79,13 @@ test("owner updates reason and time", async () => {
 
   const { data, error } = await alice.client
     .from("appointments")
-    .update({ reason: "Synthetic check-in", ...moved })
+    .update({ reason: "Routine check-in", ...moved })
     .eq("id", row.id)
     .select()
     .single();
 
   expect(error).toBeNull();
-  expect(data!.reason).toBe("Synthetic check-in");
+  expect(data!.reason).toBe("Routine check-in");
   expect(Date.parse(data!.starts_at)).toBe(Date.parse(moved.starts_at));
   expect(Date.parse(data!.ends_at)).toBe(Date.parse(moved.ends_at));
 });
@@ -121,12 +121,12 @@ test("cross-user update matches nonexistent id", async () => {
 
   const crossUser = await bob.client
     .from("appointments")
-    .update({ reason: "Synthetic takeover" })
+    .update({ reason: "Patient takeover" })
     .eq("id", aliceRow.id)
     .select();
   const missing = await bob.client
     .from("appointments")
-    .update({ reason: "Synthetic takeover" })
+    .update({ reason: "Patient takeover" })
     .eq("id", randomUUID())
     .select();
 
@@ -207,12 +207,12 @@ test("anonymous select, insert, update, delete are denied", async () => {
   const inserted = await appointments().insert({
     provider_id: PROVIDER_IDS[0],
     ...slot(11),
-    reason: "Synthetic follow-up",
+    reason: "Routine follow-up",
   });
   expect(inserted.error?.code).toBe("42501");
 
   const updated = await appointments()
-    .update({ reason: "Synthetic follow-up" })
+    .update({ reason: "Another routine follow-up" })
     .eq("id", id);
   expect(updated.error?.code).toBe("42501");
 
@@ -228,7 +228,7 @@ test("rejects durations other than 30 minutes", async () => {
     const { error } = await alice.client.from("appointments").insert({
       provider_id: PROVIDER_IDS[0],
       ...slotWithDuration(slotIndex, minutes),
-      reason: "Synthetic follow-up",
+      reason: "Routine follow-up",
     });
     expect(error?.code).toBe("23514");
   }
@@ -389,4 +389,111 @@ test("updated_at starts at created_at and advances on update", async () => {
   expect(Date.parse(data!.updated_at)).toBeGreaterThan(
     Date.parse(row.updated_at),
   );
+});
+
+describe("soft delete", () => {
+  function deleteAppointment(user: TestUser, id: string) {
+    return user.client.rpc("delete_appointment", { appointment_id: id });
+  }
+
+  test("owner soft-deletes own appointment", async () => {
+    const row = await createAppointment(alice, 27);
+
+    const deleted = await deleteAppointment(alice, row.id);
+    expect({ data: deleted.data, error: deleted.error }).toEqual({
+      data: true,
+      error: null,
+    });
+
+    const selected = await alice.client
+      .from("appointments")
+      .select()
+      .eq("id", row.id);
+    expect({ data: selected.data, error: selected.error }).toEqual({
+      data: [],
+      error: null,
+    });
+
+    const updated = await alice.client
+      .from("appointments")
+      .update({ reason: "Routine check-in" })
+      .eq("id", row.id)
+      .select();
+    expect({ data: updated.data, error: updated.error }).toEqual({
+      data: [],
+      error: null,
+    });
+
+    const again = await deleteAppointment(alice, row.id);
+    expect({ data: again.data, error: again.error }).toEqual({
+      data: false,
+      error: null,
+    });
+  });
+
+  test("deleted appointment cannot be restored or edited", async () => {
+    const row = await createAppointment(alice, 28);
+    const deleted = await deleteAppointment(alice, row.id);
+    expect(deleted.data).toBe(true);
+
+    const { error } = await alice.client
+      .from("appointments")
+      .update({ deleted_at: null })
+      .eq("id", row.id);
+    expect(error?.code).toBe("42501");
+  });
+
+  test("cross-user delete returns false like a missing id", async () => {
+    const aliceRow = await createAppointment(alice, 29);
+
+    const crossUser = await deleteAppointment(bob, aliceRow.id);
+    const missing = await deleteAppointment(bob, randomUUID());
+
+    expect({ data: crossUser.data, error: crossUser.error }).toEqual({
+      data: false,
+      error: null,
+    });
+    expect({ data: missing.data, error: missing.error }).toEqual({
+      data: false,
+      error: null,
+    });
+
+    const { data } = await alice.client
+      .from("appointments")
+      .select()
+      .eq("id", aliceRow.id)
+      .single();
+    expect(data).toEqual(aliceRow);
+  });
+
+  test("anonymous delete is denied", async () => {
+    const { error } = await anonClient().rpc("delete_appointment", {
+      appointment_id: randomUUID(),
+    });
+
+    expect(error?.code).toBe("42501");
+  });
+
+  test("deleted slot is reusable", async () => {
+    const original = await createAppointment(alice, 30);
+    const deleted = await deleteAppointment(alice, original.id);
+    expect(deleted.data).toBe(true);
+
+    const { error } = await insertAppointment(alice, 30);
+
+    expect(error).toBeNull();
+  });
+
+  test("deleting a cancelled appointment works", async () => {
+    const row = await createAppointment(alice, 31);
+    const cancelled = await alice.client
+      .from("appointments")
+      .update({ status: "cancelled" })
+      .eq("id", row.id);
+    expect(cancelled.error).toBeNull();
+
+    const { data, error } = await deleteAppointment(alice, row.id);
+
+    expect({ data, error }).toEqual({ data: true, error: null });
+  });
 });
