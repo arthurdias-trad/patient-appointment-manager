@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(60);
+select plan(69);
 
 select is_empty(
   $$
@@ -30,6 +30,46 @@ select is_empty(
   'API roles hold no write-only table privileges'
 );
 
+select is_empty(
+  $$
+    select c.relname, a.attname, r.rolname, p.privilege
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    join pg_catalog.pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+    cross join (values ('anon'), ('service_role')) as r (rolname)
+    cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')) as p (privilege)
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p')
+      and pg_catalog.has_column_privilege(r.rolname, c.oid, a.attnum, p.privilege)
+  $$,
+  'anon and service_role hold no column privileges on public tables'
+);
+
+select is_empty(
+  $$
+    select c.relname::text, a.attname::text, p.privilege
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    join pg_catalog.pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+    cross join (values ('INSERT'), ('UPDATE'), ('REFERENCES')) as p (privilege)
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p')
+      and pg_catalog.has_column_privilege('authenticated', c.oid, a.attnum, p.privilege)
+    except
+    values
+      ('appointments', 'provider_id', 'INSERT'),
+      ('appointments', 'provider_id', 'UPDATE'),
+      ('appointments', 'starts_at', 'INSERT'),
+      ('appointments', 'starts_at', 'UPDATE'),
+      ('appointments', 'ends_at', 'INSERT'),
+      ('appointments', 'ends_at', 'UPDATE'),
+      ('appointments', 'reason', 'INSERT'),
+      ('appointments', 'reason', 'UPDATE'),
+      ('appointments', 'status', 'UPDATE')
+  $$,
+  'authenticated holds only the contract column writes on public tables'
+);
+
 set local role postgres;
 create table public.default_privileges_probe ();
 create sequence public.default_privileges_probe_seq;
@@ -46,32 +86,32 @@ select is_empty(
         'USAGE, SELECT, UPDATE')
       or pg_catalog.has_function_privilege(r.rolname, 'public.default_privileges_probe()', 'EXECUTE')
   $$,
-  'default privileges grant API roles nothing'
+  'new objects postgres creates in public grant API roles nothing'
 );
 
 drop function public.default_privileges_probe();
 drop sequence public.default_privileges_probe_seq;
 drop table public.default_privileges_probe;
 
-select table_privs_are('public', 'profiles', 'anon', '{}', 'anon has no privileges on public.profiles');
-select table_privs_are('public', 'profiles', 'authenticated', '{SELECT}', 'authenticated can only select public.profiles');
-select table_privs_are('public', 'profiles', 'service_role', '{}', 'service_role has no privileges on public.profiles');
+select table_privs_are('public', 'profiles', 'anon', '{}', 'anon has no table-level privileges on public.profiles');
+select table_privs_are('public', 'profiles', 'authenticated', '{SELECT}', 'authenticated can only select public.profiles at table level');
+select table_privs_are('public', 'profiles', 'service_role', '{}', 'service_role has no table-level privileges on public.profiles');
 
 select policies_are('public', 'profiles', '{"Patients can view own profile"}', 'public.profiles has only Patients can view own profile');
 select policy_cmd_is('public', 'profiles', 'Patients can view own profile', 'SELECT', 'Patients can view own profile applies to SELECT');
 select policy_roles_are('public', 'profiles', 'Patients can view own profile', '{authenticated}', 'Patients can view own profile applies to authenticated');
 
-select table_privs_are('public', 'providers', 'anon', '{}', 'anon has no privileges on public.providers');
-select table_privs_are('public', 'providers', 'authenticated', '{SELECT}', 'authenticated can only select public.providers');
-select table_privs_are('public', 'providers', 'service_role', '{}', 'service_role has no privileges on public.providers');
+select table_privs_are('public', 'providers', 'anon', '{}', 'anon has no table-level privileges on public.providers');
+select table_privs_are('public', 'providers', 'authenticated', '{SELECT}', 'authenticated can only select public.providers at table level');
+select table_privs_are('public', 'providers', 'service_role', '{}', 'service_role has no table-level privileges on public.providers');
 
 select policies_are('public', 'providers', '{"Patients can view all providers"}', 'public.providers has only Patients can view all providers');
 select policy_cmd_is('public', 'providers', 'Patients can view all providers', 'SELECT', 'Patients can view all providers applies to SELECT');
 select policy_roles_are('public', 'providers', 'Patients can view all providers', '{authenticated}', 'Patients can view all providers applies to authenticated');
 
-select table_privs_are('public', 'appointments', 'anon', '{}', 'anon has no privileges on public.appointments');
+select table_privs_are('public', 'appointments', 'anon', '{}', 'anon has no table-level privileges on public.appointments');
 select table_privs_are('public', 'appointments', 'authenticated', '{SELECT}', 'authenticated can only select public.appointments at table level');
-select table_privs_are('public', 'appointments', 'service_role', '{}', 'service_role has no privileges on public.appointments');
+select table_privs_are('public', 'appointments', 'service_role', '{}', 'service_role has no table-level privileges on public.appointments');
 
 select column_privs_are('public', 'appointments', 'provider_id', 'authenticated', '{INSERT,SELECT,UPDATE}', 'authenticated can select, insert, and update public.appointments.provider_id');
 select column_privs_are('public', 'appointments', 'starts_at', 'authenticated', '{INSERT,SELECT,UPDATE}', 'authenticated can select, insert, and update public.appointments.starts_at');
@@ -172,7 +212,31 @@ select throws_ok(
   'started appointment cannot be moved to the future'
 );
 
+select is(
+  public.delete_appointment('20000000-0000-4000-8000-000000000001'::uuid),
+  true,
+  'started appointment can be soft-deleted'
+);
+
 reset role;
+
+select is(
+  (select updated_at from public.appointments where id = '20000000-0000-4000-8000-000000000001'),
+  now(),
+  'soft delete refreshes updated_at'
+);
+
+select is_definer('public', 'delete_appointment', '{uuid}', 'public.delete_appointment is security definer');
+select ok(
+  coalesce(
+    (select p.proconfig @> array['search_path=""'] from pg_catalog.pg_proc p where p.oid = pg_catalog.to_regprocedure('public.delete_appointment(uuid)')),
+    false
+  ),
+  'delete_appointment pins an empty search_path'
+);
+select function_privs_are('public', 'delete_appointment', '{uuid}', 'anon', '{}', 'anon cannot execute public.delete_appointment');
+select function_privs_are('public', 'delete_appointment', '{uuid}', 'authenticated', '{EXECUTE}', 'authenticated can execute public.delete_appointment');
+select function_privs_are('public', 'delete_appointment', '{uuid}', 'service_role', '{}', 'service_role cannot execute public.delete_appointment');
 
 select * from finish();
 
