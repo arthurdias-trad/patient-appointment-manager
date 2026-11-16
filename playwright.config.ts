@@ -18,6 +18,11 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "mobile",
+      grep: /@mobile/,
+      use: { ...devices["Pixel 7"], viewport: { width: 320, height: 720 } },
+    },
   ],
   webServer: [
     {
