@@ -72,7 +72,7 @@ function AlertDialogFooter({ className, ...props }: ComponentProps<"div">) {
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto",
+        "mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end [&>*]:w-full sm:[&>*]:w-auto",
         className,
       )}
       {...props}
