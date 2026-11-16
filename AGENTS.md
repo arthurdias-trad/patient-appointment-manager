@@ -23,7 +23,10 @@ Supabase (Postgres + Auth), deployed on Vercel.
 - RLS enabled on every table; default grants revoked; minimal grants per role.
 - One policy per operation; INSERT/UPDATE policies use WITH CHECK.
 - Secret/service key is server-only; never import it into client code.
-- Domain business logic and data access use Next.js Route Handlers.
+- Appointment business logic and data access live in the server-only
+  `lib/appointments/` module. Server Components read through it directly;
+  Route Handlers in `app/api/` expose its mutations to Client Components.
+  Add a read endpoint only for a concrete client consumer.
 - Prefer idiomatic framework patterns for other operations, including
   Server Actions for authentication forms.
 - Validate untrusted inputs with Zod at server boundaries.
@@ -32,7 +35,10 @@ Supabase (Postgres + Auth), deployed on Vercel.
 
 ## Structure
 
-- app/api/: route handlers (business rules + validation)
+- app/api/: Route Handlers (thin HTTP layer for appointment mutations)
+- lib/appointments/: appointment validation, data access, and error mapping
+- lib/api/: Route Handler HTTP helpers (Origin check, JSON parsing, error
+  responses, no-store)
 - lib/supabase/: server and browser clients (@supabase/ssr)
 - supabase/migrations/: all schema changes; never edit applied migrations
 - supabase/seed.sql: synthetic provider/demo data
