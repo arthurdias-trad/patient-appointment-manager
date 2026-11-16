@@ -1,83 +1,66 @@
-# Patient Appointment Manager
+# VisitHarbor
 
-VisitHarbor is a patient appointment manager: a web application for patients to schedule, view, and manage their own appointments. Each authenticated user manages only their own appointments.
+VisitHarbor lets authenticated users book, view, edit, cancel, and delete their own appointments.
+
+**Live demo:** [patient-appointment-manager.vercel.app](https://patient-appointment-manager.vercel.app)
+
+**Enter synthetic data only**, including names and appointment reasons. This is an assessment demonstration, not a system approved for real patient data. Shared demo credentials are delivered privately.
+
+The simplified **1:1 scope** means each account manages its own appointments. There is no separate patient entity, guardian access, or provider login.
 
 ## Stack
 
-- [Next.js](https://nextjs.org) 16 (App Router), React 19, TypeScript
+- Next.js 16 (App Router), React 19, TypeScript
 - Tailwind CSS 4
-- [Supabase](https://supabase.com) for Postgres and authentication, via `@supabase/ssr` with cookie-based sessions
+- Supabase Postgres and Auth, with cookie-based sessions via `@supabase/ssr`
 
-## Getting started
+## Local setup
 
-Prerequisites: Node.js 26, npm, and Docker (for the local Supabase stack).
+Prerequisites: Node.js 26, npm, and Docker running for local Supabase. The Supabase CLI is included as a dev dependency.
 
 ```bash
 npm ci
-npx playwright install chromium   # browser for end-to-end tests
-npx supabase start                # first run downloads the Docker images
-cp .env.example .env.local        # then paste the publishable key (see below)
+npx supabase start
+cp .env.example .env.local
+npx supabase status
+```
+
+Fill in `.env.local` using the local values from `status`:
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Local Project URL, normally `http://127.0.0.1:54321` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Local publishable key (`sb_publishable_...`) |
+
+The application needs no secret/service-role key. Leave the optional `HIBP_RANGE_URL` unset to use the official password-breach service; application signup requires that service to be reachable.
+
+```bash
 npm run dev
 ```
 
-The app runs at [localhost:3000](http://localhost:3000). Installing dependencies also sets up the Git hooks via Husky.
+Open [localhost:3000](http://localhost:3000) and create an account. Local Studio is at [127.0.0.1:54323](http://127.0.0.1:54323). Migrations and the five synthetic providers are loaded when the local stack is initialized; demo accounts and appointments are not seeded automatically.
 
-## Local Supabase
+After pulling schema changes, `npx supabase db reset` rebuilds the local database from [migrations](supabase/migrations/) and [provider seeds](supabase/seed.sql). **It deletes all existing local data, including Auth users.** Use `npx supabase stop` to stop the stack.
 
-The Supabase CLI is a dev dependency, so run it through `npx`. Its configuration lives in `supabase/config.toml`, and migrations go in `supabase/migrations/`.
+## Architecture and API
 
-| Command | Purpose |
+Auth forms use Server Actions. The session proxy handles refresh and redirects; protected data access verifies authentication independently. Appointment logic lives in the server-only [appointment service](lib/appointments/service.ts): Server Components read through it directly, while Client Components mutate through thin Route Handlers. There are no appointment GET endpoints.
+
+| Route | Purpose |
 | --- | --- |
-| `npx supabase start` / `npx supabase stop` | Start or stop the local stack |
-| `npx supabase status` | Show local URLs and keys |
-| `npx supabase db reset` | Recreate the local database, apply migrations, and load provider seeds |
-| `npx supabase migration new <name>` | Create a new migration file |
+| `POST /api/appointments` | Book |
+| `PATCH /api/appointments/[id]` | Edit, reschedule, or cancel |
+| `DELETE /api/appointments/[id]` | Soft-delete |
 
-`npx supabase status` prints the values for `.env.local`:
+The mutation API uses session cookies and requires a matching `Origin`; POST/PATCH require JSON. Strict Zod schemas reject unknown fields, including client-supplied ownership. Starts include a timezone offset, and the server calculates the end. Handler responses use `Cache-Control: private, no-store`; errors have the shape `{ error: { code, message, fieldErrors?, formErrors? } }`, without raw database messages. Foreign, deleted, and missing appointment IDs receive the same 404.
 
-| Variable | Value from `status` |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL (`http://127.0.0.1:54321`) |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key (`sb_publishable_...`) |
+The decisions and alternatives are recorded in:
 
-Studio runs at [127.0.0.1:54323](http://127.0.0.1:54323).
+- [ADR 0001: Password breach screening](docs/adr/0001-screen-sign-up-passwords-against-known-breaches.md)
+- [ADR 0002: Soft deletion through a privileged function](docs/adr/0002-soft-delete-appointments-through-a-security-definer-function.md)
+- [ADR 0003: Shared service for mutations and server reads](docs/adr/0003-share-appointment-logic-between-route-handlers-and-server-components.md)
 
-`npx supabase db reset` deletes existing local data, including Auth users, then applies `supabase/migrations/` and loads the five synthetic providers from `supabase/seed.sql`.
-
-Supabase clients live in `lib/supabase/`: `client.ts` for Client Components and `server.ts` for server code.
-
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the development server |
-| `npm run build` / `npm start` | Build and serve the production app |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Generate route types and check TypeScript |
-| `npm run db:types` | Regenerate committed TypeScript types from the local public schema |
-| `npx supabase test db` | Run pgTAP database privilege, RLS, and appointment time-lock checks |
-| `npm test` | Run unit and integration tests |
-| `npm run test:watch` | Run unit and integration tests in watch mode |
-| `npm run test:e2e` | Run end-to-end browser tests |
-
-## Testing
-
-Start the local Supabase stack before running tests, with migrations applied and provider seeds loaded. The pre-push hook runs lint, build, and `npm test`; it does not run pgTAP or Playwright. CI runs both separately.
-
-- **Unit** (Vitest): password rules, the breached-password check, redirect rules, appointment input validation, the database-to-API error mapping, appointment phases, Eastern Time conversion across daylight-saving changes, and the form's request preparation and error mapping.
-- **Integration** (Vitest, local Supabase): Auth settings, profile creation, provider reads and write denial, appointment ownership isolation, protected columns, duration and overlap constraints, scheduling rules, timestamps, and soft deletion. Clients use the publishable key and separate user sessions. The appointment service and Route Handlers run against the same database, with only the server client factory mocked.
-- **Database** (pgTAP): table and column privileges, effective defaults on new objects, RLS configuration, policy metadata, trigger wiring, and function permissions/settings. A privileged fixture creates an in-progress appointment inside a rolled-back transaction; behavior is then tested as its authenticated owner.
-- **End-to-end** (Playwright, Chromium): authentication with a local Have I Been Pwned stub, cookie-authenticated API security, appointment CRUD, keyboard operation, cross-user isolation, and refused off-site sign-in redirects. Session-loss coverage checks that an unauthenticated submission retains the appointment draft and offers sign-in. The CRUD flow and axe checks for WCAG 2.2 AA also run at a 320px mobile viewport, covering signed-out pages, appointment lists, dialogs, forms, and error states, with horizontal reflow checks.
-
-The check against the real Have I Been Pwned API is manual. Run it after changing the checker:
-
-```bash
-HIBP_LIVE=1 npx vitest run --project integration tests/integration/hibp-live.test.ts
-```
-
-## Database
-
-The assessment uses the CIO-approved 1:1 scope: one account manages its own patient appointments. There is no separate patient entity or guardian access.
+## Schema and ownership
 
 ```mermaid
 erDiagram
@@ -86,103 +69,125 @@ erDiagram
     providers ||--o{ appointments : receives
 ```
 
-`auth_users` in the diagram represents Supabase's `auth.users` table.
+`auth_users` represents Supabase's `auth.users`.
 
-- **profiles:** one row per Auth user, with structured names copied at signup. The signup trigger trims names and converts empty values to NULL. Names are a snapshot and don't follow later Auth metadata edits.
-- **providers:** a synthetic, authenticated-read-only directory of names and specialties, populated by the seed file. Providers are directory entries, without login accounts.
-- **appointments:** links a profile (`patient_id`) and provider with start/end times, reason, status, and creation/update/deletion timestamps. `provider_id` is deliberately unindexed until provider-based queries or deletion need it.
+- **Profiles:** one per Auth user, created by a signup trigger. Display names are a signup snapshot, never an authorization source.
+- **Providers:** a seeded directory of names and specialties.
+- **Appointments:** reference the owner's profile through `patient_id` and a provider through `provider_id`, with start/end times, reason, status, and timestamps.
 
-### Grants and policies
+All three public application tables enable RLS. Migrations revoke default API-role grants and grant only the required access:
 
-These are the application objects' API-role privileges. Each table has RLS enabled, with one policy per permitted operation and WITH CHECK on writes.
+- Authenticated users read only their own profile and non-deleted appointments; all authenticated users may read the provider directory.
+- Appointment INSERT/UPDATE policies enforce ownership, including `WITH CHECK`. Column grants prevent callers from setting or changing ownership, IDs, and managed timestamps.
+- Anonymous users and `service_role` receive no application-table grants. The app queries with the user's session and publishable key.
+- No API role can hard-delete appointments. The authenticated-only `delete_appointment` function checks ownership explicitly and sets `deleted_at`; RLS then hides the row from ordinary reads and updates.
 
-| Object | anon | authenticated | service_role | Row access |
-| --- | --- | --- | --- | --- |
-| profiles | None | SELECT | None | Own profile only |
-| providers | None | SELECT | None | All directory rows |
-| appointments | None | SELECT; column-scoped INSERT and UPDATE | None | Own non-deleted rows; inserted/updated rows must remain caller-owned |
-| delete_appointment(uuid) | None | EXECUTE | None | Function checks ownership and requires a live row |
-| private schema and its trigger functions | None | None | None | Internal trigger use only |
+## Appointment behavior and limits
 
-Appointment INSERT is limited to `provider_id`, `starts_at`, `ends_at`, and `reason`. UPDATE permits those columns plus `status`. Users cannot supply or modify IDs, ownership, creation time, update time, or deletion time. No API role receives DELETE.
+The database enforces 30-minute visits, quarter-hour starts, future booking/rescheduling, and no overlapping scheduled, non-deleted appointments **for the same patient**. Back-to-back visits are allowed. Business edits and cancellation stop at the original start time; cancelled appointments cannot be edited or reinstated.
 
-The read policies are `Patients can view own profile`, `Patients can view all providers`, and `Patients can view own appointments`. Appointment write policies are `Patients can create appointments` and `Patients can update own appointments`.
+The interface groups appointments into Upcoming, Past, and Cancelled tabs and preserves the selected tab in the URL. Times use `America/New_York` (Eastern Time). A scheduled appointment becomes Past at its end; in-progress appointments remain in Upcoming.
 
-### Scheduling and deletion
+- **Booking hours and availability:** the form offers starts from 8:15 a.m. through 4:30 p.m. Eastern Time. This is a UI-only demo window, not an API/database rule or provider availability. Different patients can book the same provider at the same time. A real scheduler would need provider availability and provider-wide conflict checks.
+- **Cancellation and deletion:** cancellation is final; rebooking creates a new row. The UI requires cancellation before offering deletion of a future scheduled visit. The backend permits direct soft deletion of any owned live row, including started or cancelled visits. Both cancellation and deletion release the patient's slot.
+- **Retention:** soft deletion is not an audit history or erasure; deleted rows remain stored without a purge policy. Deleting an Auth user cascades to hard-delete their appointments. Account deletion is not an app feature and would need a retention decision first.
+- **History size:** there is no pagination. The ascending appointment query is subject to the configured 1,000-row cap, so larger histories omit newer appointments.
 
-Appointments last exactly 30 minutes and start on 15-minute boundaries, both enforced by database CHECKs. The alignment check is computed from the absolute time, so it gives the same result in every timezone. A GiST exclusion constraint prevents overlapping scheduled, non-deleted appointments for the same patient. End times are exclusive, so back-to-back appointments are allowed. Cancellation and deletion free the slot. Different patients can book the same time; provider availability is outside the current model.
+## Proposed guardian extension (not implemented)
 
-Database triggers reject bookings or rescheduling at or before the current database time. Business fields cannot be edited once the original appointment has started or is cancelled. Cancellation is final; rebooking creates a new row. The edit cutoff uses the original start time, even if an update tries to move it into the future. Distinct error codes let the API explain which scheduling rule applied. Status is stored as `scheduled` or `cancelled`; the derived `past` state means a scheduled appointment whose end has passed.
+Separate the person receiving care from the account signing in. A child would have a patient record without needing an Auth account; one guardian could manage several patients, and several guardians could manage the same patient.
 
-Deletion calls `delete_appointment(appointment_id)`, which sets `deleted_at` only for the caller's live row. RLS hides deleted rows from ordinary reads and updates. Started and cancelled appointments can still be soft-deleted.
+```mermaid
+erDiagram
+    auth_users ||--|| profiles : has
+    profiles ||--o{ patient_guardians : authorizes
+    patients ||--o{ patient_guardians : has
+    patients ||--o{ appointments : receives
+    providers ||--o{ appointments : provides
+    patients {
+        uuid id PK
+    }
+    patient_guardians {
+        uuid guardian_id PK, FK
+        uuid patient_id PK, FK
+    }
+    appointments {
+        uuid id PK
+        uuid patient_id FK
+        uuid provider_id FK
+    }
+```
 
-[ADR 0002](docs/adr/0002-soft-delete-appointments-through-a-security-definer-function.md) explains the SECURITY DEFINER function, alternatives, and privilege boundary.
+- **Profiles** would continue to represent authenticated accounts. **Patients** would hold the care recipient's identity independently of those accounts.
+- **Patient guardians** would link `guardian_id` to `profiles.id` and `patient_id` to `patients.id`. The pair would form a composite primary key, allowing multiple guardians and children without duplicate relationships.
+- **Appointments** would reference `patients.id` instead of `profiles.id`. The existing per-patient overlap constraint would still prevent two guardians from booking overlapping visits for the same child.
 
-Regenerate and commit database types with `npm run db:types` after schema changes.
+For migration, backfill one patient per existing profile using the same ID, and an access relationship for that account's own patient record. Repoint the appointment foreign key while preserving existing appointments and access. Remove the `auth.uid()` default for `patient_id`: booking would require an explicitly selected patient, validated by the server and RLS. Patient records and appointment retention would be independent of a guardian account's deletion.
 
-### Extending to guardian access
+Enable RLS and minimal grants on both new tables. Patient and appointment reads would require a relationship whose `guardian_id` matches `auth.uid()`. Appointment UPDATE policies would check access to the existing row with `USING`, and INSERT/UPDATE policies would check the target patient with `WITH CHECK`; the soft-delete function would enforce the same relationship rule. Users could read their own relationship rows but could not create or modify them directly. Granting or revoking guardian access would require a trusted administrative process, so knowing a patient ID could never establish access.
 
-This is a future migration path, not implemented behavior:
+## Authentication trade-offs
 
-1. Introduce a separate `patients` table so patient identity is independent of the authenticated account.
-2. Backfill one patient per existing profile, using the profile ID as the patient ID to preserve existing appointment references.
-3. Repoint `appointments.patient_id` to `patients.id`.
-4. Add guardian-to-patient relationships and policies that authorize access through those relationships, including WITH CHECK on appointment writes. A supplied patient ID must never establish authorization by itself.
+Application signup accepts passwords of at least 15 Unicode characters and at most 72 UTF-8 bytes, with no character-composition rules. Passwords are NFC-normalized on signup and login. The breach check sends only a five-character SHA-1 prefix to Have I Been Pwned; a match rejects signup, and an unavailable check blocks signup until it can be retried.
 
-## Authentication
+Email confirmation is disabled for the demo, so email ownership is unverified. There is no password-reset flow.
 
-Auth forms submit to Server Actions in `app/(auth)/actions.ts`.
+Direct Supabase signup can bypass the application's breach check and may expose account existence despite generic UI errors; breach screening at the Auth boundary remains future work. Auth calls from Server Actions can share server-IP rate-limit buckets. Sign-out is local to the session, and an issued access token remains valid until expiry.
 
-`proxy.ts` refreshes the session and redirects signed-out visitors to `/login`. Every page except `/`, `/login`, and `/signup` requires a session. The proxy check is only optimistic: pages verify the session with `getCurrentUser()` in `lib/auth/dal.ts`.
+## Tests and useful commands
 
-## API
+Integration and browser tests reject missing, malformed, or non-loopback Supabase URLs before making requests. Test helpers create synthetic users without cleanup; repeated runs accumulate fixtures until a local database reset. Keep migrations and provider seeds current.
 
-The API uses cookie authentication and is intended for the same-origin web application. Client Components change appointments through three Route Handlers. Server Components read through the server-only `lib/appointments/` service directly, so there are no read endpoints; [ADR 0003](docs/adr/0003-share-appointment-logic-between-route-handlers-and-server-components.md) explains why. Both paths share the same session check, validation, and error mapping, and RLS still decides which rows a user can reach.
-
-| Route | Purpose |
+| Command | Purpose |
 | --- | --- |
-| `POST /api/appointments` | Book an appointment |
-| `PATCH /api/appointments/[id]` | Reschedule, edit, or cancel |
-| `DELETE /api/appointments/[id]` | Soft-delete |
+| `npm run lint` / `npm run typecheck` | ESLint / route-type generation and TypeScript checks |
+| `npm run build` / `npm start` | Build / serve the production app |
+| `npm test` | Vitest unit and local Supabase integration suites |
+| `npm run test:watch` | Vitest watch mode |
+| `npx supabase test db` | pgTAP database tests |
+| `npx playwright install chromium` | Install the browser required for E2E tests |
+| `npm run test:e2e` | Playwright; starts the built app and local HIBP stub |
+| `npm run db:types` | Regenerate committed public-schema types from local Supabase |
 
-Request bodies are strict: fields the client may not set, such as `patientId`, are rejected rather than ignored. Starts need an explicit timezone offset and must fall on a quarter hour; the server computes the end. Errors share one shape, `{ error: { code, message, fieldErrors?, formErrors? } }`, so the UI can show each message next to the right field.
+Implemented coverage:
 
-## Managing appointments
+- **Vitest unit:** password/breach checks, redirects, appointment validation, form/error handling, phases, and Eastern Time/DST conversion.
+- **Vitest integration:** local Supabase Auth, profile/provider access, cross-user RLS isolation, protected columns, scheduling, timestamps, and soft deletion. Service/handler tests use the real database with only the server-client factory mocked.
+- **pgTAP:** grants, RLS, privileged-function boundaries, and in-progress scheduling/timestamp behavior in a rolled-back transaction.
+- **Playwright:** authentication, UI CRUD, cross-user isolation, keyboard navigation, validation, and draft retention after session loss. Separate API tests cover cookies, Origin rejection, and cache headers.
 
-Appointments are grouped into Upcoming, Past, and Cancelled tabs, with the selected tab preserved in the URL. Times use the clinic's timezone, Eastern Time. Cancellation is final. Upcoming appointments must be cancelled before the interface offers deletion; started, past, and cancelled appointments can be deleted directly. Deletion hides the record through the soft-delete mechanism described above.
+Selected CRUD and accessibility tests run at 320px, with axe WCAG A/AA checks through 2.2 and horizontal reflow assertions. Accessibility coverage is limited to tested pages/states. Past/in-progress states have unit/database coverage, not browser coverage.
 
-The booking form offers starts from 8:15 a.m. to 4:30 p.m. Eastern Time in 15-minute steps, so every visit ends by 5:00 p.m. This window is a demonstration rule applied only in the form; the API does not enforce this window. A production scheduler would offer slots from provider availability. Edits send only the fields that changed, and the database still decides whether a start is in the future.
+Integration booking fixtures use fixed January 2031 slots; E2E fixtures use January 2032. They must remain future dates relative to the database clock and will need replacement. Routine tests stub HIBP; the optional live check is:
 
-## Security
+```bash
+HIBP_LIVE=1 npx vitest run --project integration tests/integration/hibp-live.test.ts
+```
 
-- Passwords follow [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html): at least 15 characters, no composition rules, and rejected if they appear in a known breach. Only a 5-character hash prefix is sent to Have I Been Pwned, and sign-up is refused if the check is unavailable. See [ADR 0001](docs/adr/0001-screen-sign-up-passwords-against-known-breaches.md) for the decision and trade-offs.
-- Sign-in and sign-up errors don't reveal whether an account exists.
-- Return-to links only accept same-site paths.
-- Names are display-only and never used for authorization.
-- Migrations revoke the API roles' default table, sequence, and function grants in `public`. A global revoke removes function execution through `PUBLIC`. Each application object then gets explicit minimal grants. `service_role` receives no grants on application objects, despite its RLS bypass capability.
-- RLS does not cover TRUNCATE, so its privilege is explicitly excluded alongside other unnecessary administrative permissions. Column checks also reject unexpected grants, including grants on future columns.
-- The `private` schema is not exposed by the Data API and has no API-role privileges. Its trigger helpers pin empty search paths. Only signup profile creation and the public delete function use SECURITY DEFINER; scheduling and timestamp helpers use invoker security.
-- Cross-user appointment reads return no rows. Updates targeting foreign, deleted, or nonexistent IDs return no rows; the delete RPC returns false for all three. These operations, and the API's 404s, do not distinguish whether another user's row exists.
-- The application never uses the secret key; only the URL and publishable key are public.
-- Application code does not log appointment reasons or names.
-- API mutations require an `Origin` matching the deployment's public scheme, host, and port, and POST and PATCH also require JSON bodies. Route Handlers don't get the Server Actions origin check, and `SameSite=Lax` cookies alone don't stop every cross-site request.
-- Mutation responses are `private, no-store` and never include raw database errors.
+[CI](.github/workflows/ci.yml) runs lint, typecheck, pgTAP, Vitest, build, and Playwright.
 
-## Deployment
+## Deployment and demo data
 
-Run **Deploy production** from GitHub Actions on `main`. It tests the selected commit, builds with Vercel's production settings, applies hosted Supabase migrations and provider seeds, then deploys the same build. The run summary records the URL and commit SHA. Git deployments are disabled in `vercel.json`; use Actions rather than dashboard redeploys to include the database steps.
+Run **Deploy production** manually in GitHub Actions with `main` selected. The [workflow](.github/workflows/deploy-production.yml) runs CI, builds using Vercel production settings, applies hosted Supabase migrations and provider seeds, then deploys that build. Its summary records the deployment URL and commit SHA. Git deployments are disabled in `vercel.json`; dashboard redeploys bypass the database steps.
 
-The GitHub `production` environment holds secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, and `VERCEL_TOKEN`, plus variables `SUPABASE_PROJECT_ID`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`. Vercel's production environment supplies `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; Node 26 is declared in `package.json`.
+Required configuration:
 
-Database migrations run before deployment and are not automatically rolled back if it fails. They must remain compatible with the currently deployed app.
+| Location | Names |
+| --- | --- |
+| GitHub `production` environment secrets | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `VERCEL_TOKEN` |
+| GitHub `production` environment variables | `SUPABASE_PROJECT_ID`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+| Vercel production environment | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for hosted Supabase, both saved as **Config** |
 
-### Demo appointments
+Hosted Auth settings require separate configuration; the workflow applies migrations and seeds, not `supabase/config.toml`. Database changes are not automatically rolled back if deployment fails, so migrations must remain compatible with the running app.
 
-Create two demo accounts through the application, then run [scripts/demo-appointments.sql](scripts/demo-appointments.sql) in the hosted Supabase SQL Editor after replacing its two profile-ID placeholders. Each account receives two past, two upcoming, and one cancelled synthetic appointment. Rerunning restores those demo appointments without changing unrelated appointments.
+For appointment history, create two demo accounts through the app, then run the entire [demo-data script](scripts/demo-appointments.sql) as `postgres` in the intended project's Supabase SQL Editor after replacing its two profile-ID placeholders privately. It creates two past, two upcoming, and one cancelled synthetic appointment per account. Reruns restore those demo rows, including deleted ones, without changing unrelated appointments. The transaction temporarily disables the scheduling trigger to create past visits; other constraints remain active.
 
-## Known limitations
+## Before production
 
-- **Demo authentication:** email confirmation is off, so email ownership isn't verified, and there is no password reset. Auth rate limits apply per server IP, so all users share them. Calling the Supabase Auth API directly skips the breached-password check; Supabase's hosted leaked-password protection would close this. After sign-out, the current access token stays valid until it expires (up to an hour).
-- **Scheduling:** provider availability and provider-wide conflicts are not checked, so different patients can book the same provider at the same time.
-- **Retention:** soft deletion records when a row was deleted, not a history of changes, and deleted rows stay stored without a purge policy. Deleting an Auth user cascades and hard-deletes their appointments, so account deletion needs a retention decision first.
-- **Pagination:** the appointment list isn't paginated and is capped at 1000 rows.
+If taking this demonstration toward production, I would focus next on these items. They are priorities, not a complete production-readiness checklist:
+
+- **Scheduling:** provider availability and provider-wide conflict prevention, with booking restrictions enforced server-side.
+- **Account security and recovery:** email verification, password reset/update, and breach screening enforced at the Auth boundary.
+- **Complete appointment histories:** pagination so larger histories are not silently truncated.
+- **Data lifecycle:** defined retention and deletion policies before accepting real patient data.
+- **Audit logging:** a durable, access-controlled record of who changed appointments or access permissions, what operation occurred, and when, without copying appointment reasons or other unnecessary sensitive data into logs.
