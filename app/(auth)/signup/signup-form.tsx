@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { controlClassName, Field } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signUp, type AuthFormState } from "../actions";
 
 const initialState: AuthFormState = {};
@@ -86,13 +87,11 @@ export function SignupForm() {
         errors={state.fieldErrors?.password}
       >
         {(aria) => (
-          <input
+          <PasswordInput
             {...aria}
             name="password"
-            type="password"
             autoComplete="new-password"
             minLength={15}
-            className={controlClassName}
           />
         )}
       </Field>
@@ -103,12 +102,10 @@ export function SignupForm() {
         errors={state.fieldErrors?.confirmPassword}
       >
         {(aria) => (
-          <input
+          <PasswordInput
             {...aria}
             name="confirmPassword"
-            type="password"
             autoComplete="new-password"
-            className={controlClassName}
           />
         )}
       </Field>

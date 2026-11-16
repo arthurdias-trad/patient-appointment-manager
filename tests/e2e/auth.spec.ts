@@ -11,7 +11,7 @@ test("unauthenticated visitor is sent to login and returned after signing in", a
   await expect(page).toHaveURL("/login?next=%2Fappointments%3Ftab%3Dupcoming");
 
   await page.getByLabel("Email").fill(user.email);
-  await page.getByLabel("Password").fill(user.password);
+  await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL("/appointments?tab=upcoming");
@@ -90,7 +90,7 @@ test("auth failures never reveal whether an account exists", async ({
   const invalid = page.getByText("Invalid email or password.");
   for (const email of [user.email, `e2e+${crypto.randomUUID()}@example.com`]) {
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("a-wrong-password-123");
+    await page.getByLabel("Password", { exact: true }).fill("a-wrong-password-123");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(invalid).toBeVisible();
     await page.reload();
@@ -104,7 +104,7 @@ test("signed-in users are bounced from auth pages and sign out cleanly", async (
 
   await page.goto("/login");
   await page.getByLabel("Email").fill(user.email);
-  await page.getByLabel("Password").fill(user.password);
+  await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("/appointments");
 
@@ -130,7 +130,7 @@ test.describe("without JavaScript", () => {
 
     await page.goto("/login?next=%2Fappointments%3Ftab%3Dupcoming");
     await page.getByLabel("Email").fill(user.email);
-    await page.getByLabel("Password").fill(user.password);
+    await page.getByLabel("Password", { exact: true }).fill(user.password);
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page).toHaveURL("/appointments?tab=upcoming");
