@@ -8,6 +8,7 @@ export function Logo({ className }: { className?: string }) {
       alt="VisitHarbor"
       width={550}
       height={144}
+      loading="eager"
       className={cn("h-auto w-42 sm:w-55", className)}
     />
   );
