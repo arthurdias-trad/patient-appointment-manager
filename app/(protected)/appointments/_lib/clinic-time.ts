@@ -1,16 +1,23 @@
 import { TZDate } from "@date-fns/tz";
+import { START_STEP_MINUTES } from "@/lib/appointments/schemas";
 
 export const CLINIC_TIME_ZONE = "America/New_York";
 export const CLINIC_TIME_ZONE_LABEL = "Eastern Time";
+
+const FIRST_START_MINUTES = 8 * 60 + 15;
+const LAST_START_MINUTES = 16 * 60 + 30;
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
 export const BOOKING_START_TIMES: readonly string[] = Array.from(
-  { length: 34 },
+  {
+    length:
+      (LAST_START_MINUTES - FIRST_START_MINUTES) / START_STEP_MINUTES + 1,
+  },
   (_, i) => {
-    const minutes = 8 * 60 + 15 + i * 15;
+    const minutes = FIRST_START_MINUTES + i * START_STEP_MINUTES;
     return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
   },
 );
@@ -54,6 +61,7 @@ export function clinicToday(now: Date): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+// Expects a validated calendar date and a time from BOOKING_START_TIMES.
 export function clinicWallTimeToIso(date: string, time: string): string {
   const [year, month, day] = date.split("-").map(Number);
   const [hours, minutes] = time.split(":").map(Number);
