@@ -97,12 +97,12 @@ test("auth failures never reveal whether an account exists", async ({
   }
 });
 
-test("signed-in users are bounced from auth pages and sign out cleanly", async ({
+test("sign-in refuses off-site redirects; signed-in users are bounced and sign out cleanly", async ({
   page,
 }) => {
   const user = await createTestUser();
 
-  await page.goto("/login");
+  await page.goto("/login?next=%2F%2Fattacker.example");
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();

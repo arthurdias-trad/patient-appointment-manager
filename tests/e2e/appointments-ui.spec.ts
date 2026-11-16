@@ -52,9 +52,7 @@ test("starts a fresh form after a successful booking", async ({ page }) => {
   }
 
   await expect(
-    page
-      .getByRole("tabpanel")
-      .getByRole("heading", { name: PROVIDER.name }),
+    page.getByRole("tabpanel").getByRole("heading", { name: PROVIDER.name }),
   ).toHaveCount(2);
 });
 
@@ -194,4 +192,46 @@ test("another patient's edit link shows not found", async ({ page }) => {
   await expect(
     page.getByRole("tabpanel").getByText("No upcoming appointments"),
   ).toBeVisible();
+});
+
+test("session loss preserves the draft after a rejected submission and offers sign-in", async ({
+  page,
+}) => {
+  const user = await createTestUser();
+  await signIn(page, user);
+  await page.goto("/appointments/new");
+
+  const main = page.getByRole("main");
+  const reason = main.getByLabel("Reason for appointment");
+  await main.getByLabel("Provider", { exact: true }).selectOption(PROVIDER.id);
+  await main.getByLabel("Appointment date").fill("2032-01-05");
+  await main.getByLabel("Start time").selectOption("09:00");
+  await reason.fill("Routine follow-up");
+
+  await page.context().clearCookies();
+  await main
+    .getByRole("button", { name: "Book appointment", exact: true })
+    .click();
+
+  const alert = main.getByRole("alert");
+  await expect(alert).toContainText("Sign in to continue.");
+  await expect(main.getByLabel("Provider", { exact: true })).toHaveValue(
+    PROVIDER.id,
+  );
+  await expect(main.getByLabel("Appointment date")).toHaveValue("2032-01-05");
+  await expect(main.getByLabel("Start time")).toHaveValue("09:00");
+  await expect(reason).toHaveValue("Routine follow-up");
+
+  const signInLink = alert.getByRole("link", { name: "Sign in" });
+  await expect(signInLink).toHaveAttribute(
+    "href",
+    "/login?next=%2Fappointments%2Fnew",
+  );
+  await signInLink.click();
+  await expect(page).toHaveURL("/login?next=%2Fappointments%2Fnew");
+
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password", { exact: true }).fill(user.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/appointments/new");
 });
