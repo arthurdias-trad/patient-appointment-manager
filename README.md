@@ -149,7 +149,7 @@ Request bodies are strict: fields the client may not set, such as `patientId`, a
 
 ## Managing appointments
 
-The appointment list groups appointments into Upcoming, Past, and Cancelled tabs and keeps the selected tab in the URL, so reloads and the back button restore it. Every time is shown in Eastern Time, the clinic's timezone, whatever the viewer's own timezone. Cancelling is final. The interface asks you to cancel an upcoming appointment before deleting it, while appointments that have started, ended, or been cancelled can be deleted directly; deletion is the soft delete described above.
+Appointments are grouped into Upcoming, Past, and Cancelled tabs, with the selected tab preserved in the URL. Times use the clinic's timezone, Eastern Time. Cancellation is final. Upcoming appointments must be cancelled before the interface offers deletion; started, past, and cancelled appointments can be deleted directly. Deletion hides the record through the soft-delete mechanism described above.
 
 ## Security
 
