@@ -8,7 +8,9 @@ import type { Appointment } from "@/lib/appointments/types";
 import { z } from "zod";
 import {
   BOOKING_START_TIMES,
+  CLINIC_TIME_ZONE_LABEL,
   clinicWallTimeToIso,
+  formatClockTime,
   isoToClinicWallTime,
 } from "./clinic-time";
 import { fromFieldErrors } from "./form-errors";
@@ -34,7 +36,8 @@ const DATE_REQUIRED_MESSAGE = "Choose a date.";
 const DATE_INVALID_MESSAGE = "Enter a valid date.";
 const TIME_REQUIRED_MESSAGE = "Choose a start time.";
 const TIME_OUTSIDE_WINDOW_MESSAGE =
-  "Choose a start time between 8:15 AM and 4:30 PM Eastern Time.";
+  `Choose a start time between ${formatClockTime(BOOKING_START_TIMES[0])} and ` +
+  `${formatClockTime(BOOKING_START_TIMES[BOOKING_START_TIMES.length - 1])} ${CLINIC_TIME_ZONE_LABEL}.`;
 
 export const EMPTY_VALUES: AppointmentFormValues = {
   providerId: "",
@@ -64,7 +67,10 @@ function isCalendarDate(date: string): boolean {
   );
 }
 
-function startFromValues(v: AppointmentFormValues): {
+function startFromValues(
+  v: AppointmentFormValues,
+  convert = true,
+): {
   startsAt?: string;
   fieldErrors: AppointmentFormErrors["fieldErrors"];
 } {
@@ -75,7 +81,7 @@ function startFromValues(v: AppointmentFormValues): {
   else if (!BOOKING_START_TIMES.includes(v.time)) {
     fieldErrors.time = [TIME_OUTSIDE_WINDOW_MESSAGE];
   }
-  if (fieldErrors.date || fieldErrors.time) return { fieldErrors };
+  if (fieldErrors.date || fieldErrors.time || !convert) return { fieldErrors };
   try {
     return { startsAt: clinicWallTimeToIso(v.date, v.time), fieldErrors };
   } catch {
@@ -121,12 +127,12 @@ export function preparePatch(
   original: AppointmentFormValues,
   v: AppointmentFormValues,
 ): Prepared<UpdateAppointmentInput> {
-  const { startsAt, fieldErrors } = startFromValues(v);
   const changed = {
     providerId: v.providerId !== original.providerId,
     startsAt: v.date !== original.date || v.time !== original.time,
     reason: v.reason.trim() !== original.reason.trim(),
   };
+  const { startsAt, fieldErrors } = startFromValues(v, changed.startsAt);
   return parse(
     updateAppointmentSchema,
     {
