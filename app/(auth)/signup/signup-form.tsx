@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { controlClassName, Field } from "@/components/ui/field";
@@ -11,12 +11,13 @@ const initialState: AuthFormState = {};
 
 export function SignupForm() {
   const [state, action, pending] = useActionState(signUp, initialState);
+  const idPrefix = useId();
 
   return (
     <form action={action} className="flex flex-col gap-4">
       {state.formError && <Alert tone="error">{state.formError}</Alert>}
       <Field
-        id="firstName"
+        id={`${idPrefix}firstName`}
         label="First name"
         required
         errors={state.fieldErrors?.firstName}
@@ -32,7 +33,7 @@ export function SignupForm() {
         )}
       </Field>
       <Field
-        id="middleName"
+        id={`${idPrefix}middleName`}
         label="Middle name (optional)"
         errors={state.fieldErrors?.middleName}
       >
@@ -47,7 +48,7 @@ export function SignupForm() {
         )}
       </Field>
       <Field
-        id="lastName"
+        id={`${idPrefix}lastName`}
         label="Last name"
         required
         errors={state.fieldErrors?.lastName}
@@ -63,7 +64,7 @@ export function SignupForm() {
         )}
       </Field>
       <Field
-        id="email"
+        id={`${idPrefix}email`}
         label="Email address"
         required
         errors={state.fieldErrors?.email}
@@ -80,7 +81,7 @@ export function SignupForm() {
         )}
       </Field>
       <Field
-        id="password"
+        id={`${idPrefix}password`}
         label="Password"
         hint="Use at least 15 characters."
         required
@@ -96,7 +97,7 @@ export function SignupForm() {
         )}
       </Field>
       <Field
-        id="confirmPassword"
+        id={`${idPrefix}confirmPassword`}
         label="Confirm password"
         required
         errors={state.fieldErrors?.confirmPassword}
