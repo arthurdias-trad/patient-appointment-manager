@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { controlClassName, Field } from "@/components/ui/field";
@@ -11,13 +11,14 @@ const initialState: AuthFormState = {};
 
 export function LoginForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState(signIn, initialState);
+  const idPrefix = useId();
 
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
       {state.formError && <Alert tone="error">{state.formError}</Alert>}
       <Field
-        id="email"
+        id={`${idPrefix}email`}
         label="Email address"
         required
         errors={state.fieldErrors?.email}
@@ -34,7 +35,7 @@ export function LoginForm({ next }: { next: string }) {
         )}
       </Field>
       <Field
-        id="password"
+        id={`${idPrefix}password`}
         label="Password"
         required
         errors={state.fieldErrors?.password}

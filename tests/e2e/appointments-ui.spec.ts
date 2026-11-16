@@ -4,6 +4,50 @@ import { createTestUser } from "./support/users";
 
 const PROVIDER_ID = "00000000-0000-4000-8000-000000000001";
 
+test("starts a fresh form after a successful booking", async ({ page }) => {
+  const user = await createTestUser();
+  await signIn(page, user);
+
+  for (const [time, reason] of [
+    ["09:00", "First booking"],
+    ["10:00", "Second booking"],
+  ]) {
+    await page.getByRole("link", { name: "Book appointment" }).first().click();
+    await expect(page).toHaveURL("/appointments/new");
+
+    const main = page.getByRole("main");
+    const submit = main.getByRole("button", {
+      name: "Book appointment",
+      exact: true,
+    });
+    await expect(main.getByLabel("Provider", { exact: true })).toHaveValue("");
+    await expect(main.getByLabel("Appointment date")).toHaveValue("");
+    await expect(main.getByLabel("Start time")).toHaveValue("");
+    await expect(main.getByLabel("Reason for appointment")).toHaveValue("");
+    await expect(submit).toBeEnabled();
+    await expect(submit).not.toHaveAttribute("aria-busy", "true");
+
+    await main
+      .getByLabel("Provider", { exact: true })
+      .selectOption(PROVIDER_ID);
+    await main.getByLabel("Appointment date").fill("2032-01-05");
+    await main.getByLabel("Start time").selectOption(time);
+    await main.getByLabel("Reason for appointment").fill(reason);
+    await submit.click();
+
+    await expect(page).toHaveURL("/appointments");
+    await expect(
+      page.getByRole("tabpanel").getByText(reason, { exact: true }),
+    ).toBeVisible();
+  }
+
+  await expect(
+    page
+      .getByRole("tabpanel")
+      .getByRole("heading", { name: "Dr. Avery Quill" }),
+  ).toHaveCount(2);
+});
+
 test("cancels and deletes from the list", async ({ page, baseURL }) => {
   const user = await createTestUser();
   await signIn(page, user);
