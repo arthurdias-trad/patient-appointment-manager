@@ -249,6 +249,45 @@ test("accepts offset timestamps", async () => {
   expect(error).toBeNull();
 });
 
+test("rejects starts off the 15-minute grid", async () => {
+  const base = Date.parse(slot(40).starts_at);
+  const shifted = (ms: number) => ({
+    starts_at: new Date(base + ms).toISOString(),
+    ends_at: new Date(base + ms + 30 * 60 * 1000).toISOString(),
+  });
+
+  for (const times of [
+    shifted(7 * 60 * 1000),
+    shifted(30 * 1000),
+    shifted(1),
+    {
+      starts_at: slot(40).starts_at.replace(".000Z", ".000001Z"),
+      ends_at: slot(40).ends_at.replace(".000Z", ".000001Z"),
+    },
+  ]) {
+    const { error } = await insertAppointment(alice, 40, times);
+    expect(error?.code).toBe("23514");
+  }
+});
+
+test("accepts quarter-hour starts in any offset", async () => {
+  const start = Date.parse(slot(41).starts_at) + 45 * 60 * 1000;
+
+  for (const times of [
+    {
+      starts_at: new Date(start).toISOString(),
+      ends_at: new Date(start + 30 * 60 * 1000).toISOString(),
+    },
+    {
+      starts_at: "2031-03-10T09:45:00+05:45",
+      ends_at: "2031-03-10T04:30:00Z",
+    },
+  ]) {
+    const { error } = await insertAppointment(alice, 41, times);
+    expect(error).toBeNull();
+  }
+});
+
 test("rejects blank, untrimmed, oversize reasons", async () => {
   for (const [slotIndex, reason] of [
     [14, ""],
