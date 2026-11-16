@@ -168,11 +168,13 @@ The booking form offers starts from 8:15 a.m. to 4:30 p.m. Eastern Time in 15-mi
 - API mutations require an `Origin` matching the deployment's public scheme, host, and port, and POST and PATCH also require JSON bodies. Route Handlers don't get the Server Actions origin check, and `SameSite=Lax` cookies alone don't stop every cross-site request.
 - Mutation responses are `private, no-store` and never include raw database errors.
 
-## Deployment notes
+## Deployment
 
-- The hosted Supabase project must match `supabase/config.toml`: minimum password length 15, email confirmations off.
-- Provider seeding on the hosted project is manual.
-- The delete function relies on its owner bypassing RLS. This is verified locally; verify it on the hosted project too.
+Run **Deploy production** from GitHub Actions on `main`. It tests the selected commit, builds with Vercel's production settings, applies hosted Supabase migrations and provider seeds, then deploys the same build. The run summary records the URL and commit SHA. Git deployments are disabled in `vercel.json`; use Actions rather than dashboard redeploys to include the database steps.
+
+The GitHub `production` environment holds secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, and `VERCEL_TOKEN`, plus variables `SUPABASE_PROJECT_ID`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`. Vercel's production environment supplies `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; Node 26 is declared in `package.json`.
+
+Database migrations run before deployment and are not automatically rolled back if it fails. They must remain compatible with the currently deployed app.
 
 ## Known limitations
 
