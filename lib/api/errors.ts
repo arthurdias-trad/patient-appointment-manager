@@ -1,27 +1,39 @@
-export type ApiErrorCode =
-  | "forbidden"
-  | "unsupported_media_type"
-  | "invalid_json"
-  | "unauthenticated"
-  | "not_found"
-  | "validation_failed"
-  | "appointment_conflict"
-  | "appointment_started"
-  | "appointment_cancelled"
-  | "internal_error";
+import { z } from "zod";
 
-export type FieldErrors = Partial<
-  Record<"providerId" | "startsAt" | "reason" | "status", string[]>
->;
+const apiErrorCodeSchema = z.enum([
+  "forbidden",
+  "unsupported_media_type",
+  "invalid_json",
+  "unauthenticated",
+  "not_found",
+  "validation_failed",
+  "appointment_conflict",
+  "appointment_started",
+  "appointment_cancelled",
+  "internal_error",
+]);
 
-export type ApiErrorBody = {
-  error: {
-    code: ApiErrorCode;
-    message: string;
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};
+export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
+
+const fieldErrorsSchema = z.object({
+  providerId: z.array(z.string()).optional(),
+  startsAt: z.array(z.string()).optional(),
+  reason: z.array(z.string()).optional(),
+  status: z.array(z.string()).optional(),
+});
+
+export type FieldErrors = z.infer<typeof fieldErrorsSchema>;
+
+export const apiErrorBodySchema = z.object({
+  error: z.object({
+    code: apiErrorCodeSchema,
+    message: z.string(),
+    fieldErrors: fieldErrorsSchema.optional(),
+    formErrors: z.array(z.string()).optional(),
+  }),
+});
+
+export type ApiErrorBody = z.infer<typeof apiErrorBodySchema>;
 
 export const API_ERROR_MESSAGES: Record<ApiErrorCode, string> = {
   forbidden: "This request isn't allowed.",

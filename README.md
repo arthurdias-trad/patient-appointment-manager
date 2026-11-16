@@ -147,6 +147,10 @@ The API uses cookie authentication and is intended for the same-origin web appli
 
 Request bodies are strict: fields the client may not set, such as `patientId`, are rejected rather than ignored. Starts need an explicit timezone offset and must fall on a quarter hour; the server computes the end. Errors share one shape, `{ error: { code, message, fieldErrors?, formErrors? } }`, so the UI can show each message next to the right field.
 
+## Managing appointments
+
+The appointment list groups appointments into Upcoming, Past, and Cancelled tabs and keeps the selected tab in the URL, so reloads and the back button restore it. Every time is shown in Eastern Time, the clinic's timezone, whatever the viewer's own timezone. Cancelling is final. The interface asks you to cancel an upcoming appointment before deleting it, while appointments that have started, ended, or been cancelled can be deleted directly; deletion is the soft delete described above.
+
 ## Security
 
 - Passwords follow [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html): at least 15 characters, no composition rules, and rejected if they appear in a known breach. Only a 5-character hash prefix is sent to Have I Been Pwned, and sign-up is refused if the check is unavailable. See [ADR 0001](docs/adr/0001-screen-sign-up-passwords-against-known-breaches.md) for the decision and trade-offs.
