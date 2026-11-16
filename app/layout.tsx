@@ -19,7 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <a
           href="#main"
-          className="sr-only rounded-md bg-card px-4 py-3 font-semibold text-primary shadow-overlay focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+          className="sr-only rounded-md bg-card font-semibold text-primary shadow-overlay focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-3"
         >
           Skip to content
         </a>

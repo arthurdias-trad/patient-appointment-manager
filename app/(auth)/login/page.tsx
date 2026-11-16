@@ -9,18 +9,23 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   return (
-    <main
-      id="main"
-      className="mx-auto flex w-full max-w-sm flex-col gap-6 px-4 py-16"
-    >
-      <h1 className="text-2xl font-semibold">Sign in</h1>
+    <>
+      <h1 className="mb-3 text-heading-lg font-semibold tracking-tight text-primary">
+        Welcome back
+      </h1>
+      <p className="mb-8 text-muted-foreground">
+        Sign in to manage your appointments.
+      </p>
       <LoginForm next={typeof next === "string" ? next : ""} />
-      <p className="text-sm">
-        No account?{" "}
-        <Link href="/signup" className="underline">
-          Create one
+      <p className="mt-6 text-center text-caption">
+        New to the portal?{" "}
+        <Link
+          href="/signup"
+          className="inline-flex min-h-11 items-center rounded-sm font-semibold text-primary underline"
+        >
+          Create an account
         </Link>
       </p>
-    </main>
+    </>
   );
 }

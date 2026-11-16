@@ -1,6 +1,6 @@
 # Patient Appointment Manager
 
-A web application for patients to schedule, view, and manage their own appointments. Each authenticated user manages only their own appointments.
+VisitHarbor is a patient appointment manager: a web application for patients to schedule, view, and manage their own appointments. Each authenticated user manages only their own appointments.
 
 ## Stack
 

@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { controlClassName, Field } from "@/components/ui/field";
 import { signUp, type AuthFormState } from "../actions";
-import { InputField } from "../input-field";
 
 const initialState: AuthFormState = {};
 
@@ -11,73 +13,113 @@ export function SignupForm() {
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      {state.formError && (
-        <p role="alert" className="text-sm text-red-600">
-          {state.formError}
-        </p>
-      )}
-      <InputField
+      {state.formError && <Alert tone="error">{state.formError}</Alert>}
+      <Field
         id="firstName"
-        name="firstName"
         label="First name"
-        autoComplete="given-name"
         required
-        defaultValue={state.values?.firstName}
         errors={state.fieldErrors?.firstName}
-      />
-      <InputField
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="firstName"
+            autoComplete="given-name"
+            defaultValue={state.values?.firstName}
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Field
         id="middleName"
-        name="middleName"
-        label="Middle name"
-        autoComplete="additional-name"
-        defaultValue={state.values?.middleName}
+        label="Middle name (optional)"
         errors={state.fieldErrors?.middleName}
-      />
-      <InputField
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="middleName"
+            autoComplete="additional-name"
+            defaultValue={state.values?.middleName}
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Field
         id="lastName"
-        name="lastName"
         label="Last name"
-        autoComplete="family-name"
         required
-        defaultValue={state.values?.lastName}
         errors={state.fieldErrors?.lastName}
-      />
-      <InputField
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="lastName"
+            autoComplete="family-name"
+            defaultValue={state.values?.lastName}
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Field
         id="email"
-        name="email"
-        type="email"
-        label="Email"
-        autoComplete="email"
+        label="Email address"
         required
-        defaultValue={state.values?.email}
         errors={state.fieldErrors?.email}
-      />
-      <InputField
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="email"
+            type="email"
+            autoComplete="email"
+            defaultValue={state.values?.email}
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Field
         id="password"
-        name="password"
-        type="password"
         label="Password"
-        autoComplete="new-password"
-        minLength={15}
+        hint="Use at least 15 characters."
         required
         errors={state.fieldErrors?.password}
-      />
-      <InputField
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={15}
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Field
         id="confirmPassword"
-        name="confirmPassword"
-        type="password"
         label="Confirm password"
-        autoComplete="new-password"
         required
         errors={state.fieldErrors?.confirmPassword}
-      />
-      <button
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Button
         type="submit"
         disabled={pending}
-        className="rounded bg-foreground px-4 py-2 text-background disabled:opacity-50"
+        aria-busy={pending || undefined}
+        className="mt-4 w-full"
       >
-        Create account
-      </button>
+        {pending ? "Creating account…" : "Create account"}
+      </Button>
     </form>
   );
 }

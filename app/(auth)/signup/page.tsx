@@ -3,18 +3,20 @@ import { SignupForm } from "./signup-form";
 
 export default function SignupPage() {
   return (
-    <main
-      id="main"
-      className="mx-auto flex w-full max-w-sm flex-col gap-6 px-4 py-16"
-    >
-      <h1 className="text-2xl font-semibold">Create your account</h1>
+    <>
+      <h1 className="mb-8 text-heading-lg font-semibold tracking-tight text-primary">
+        Create your account
+      </h1>
       <SignupForm />
-      <p className="text-sm">
+      <p className="mt-6 text-center text-caption">
         Already have an account?{" "}
-        <Link href="/login" className="underline">
+        <Link
+          href="/login"
+          className="inline-flex min-h-11 items-center rounded-sm font-semibold text-primary underline"
+        >
           Sign in
         </Link>
       </p>
-    </main>
+    </>
   );
 }

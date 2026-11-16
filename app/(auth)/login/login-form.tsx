@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { controlClassName, Field } from "@/components/ui/field";
 import { signIn, type AuthFormState } from "../actions";
-import { InputField } from "../input-field";
 
 const initialState: AuthFormState = {};
 
@@ -12,37 +14,48 @@ export function LoginForm({ next }: { next: string }) {
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
-      {state.formError && (
-        <p role="alert" className="text-sm text-red-600">
-          {state.formError}
-        </p>
-      )}
-      <InputField
+      {state.formError && <Alert tone="error">{state.formError}</Alert>}
+      <Field
         id="email"
-        name="email"
-        type="email"
-        label="Email"
-        autoComplete="email"
+        label="Email address"
         required
-        defaultValue={state.values?.email}
         errors={state.fieldErrors?.email}
-      />
-      <InputField
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="email"
+            type="email"
+            autoComplete="email"
+            defaultValue={state.values?.email}
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Field
         id="password"
-        name="password"
-        type="password"
         label="Password"
-        autoComplete="current-password"
         required
         errors={state.fieldErrors?.password}
-      />
-      <button
+      >
+        {(aria) => (
+          <input
+            {...aria}
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            className={controlClassName}
+          />
+        )}
+      </Field>
+      <Button
         type="submit"
         disabled={pending}
-        className="rounded bg-foreground px-4 py-2 text-background disabled:opacity-50"
+        aria-busy={pending || undefined}
+        className="mt-4 w-full"
       >
-        Sign in
-      </button>
+        {pending ? "Signing in…" : "Sign in"}
+      </Button>
     </form>
   );
 }
