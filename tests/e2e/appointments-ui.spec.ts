@@ -18,11 +18,16 @@ test("starts a fresh form after a successful booking", async ({ page }) => {
   const user = await createTestUser();
   await signIn(page, user);
 
-  for (const [time, reason] of [
+  const bookings = [
     ["09:00", "First booking"],
     ["10:00", "Second booking"],
-  ]) {
-    await page.getByRole("link", { name: "Book appointment" }).first().click();
+  ];
+  for (const [index, [time, reason]] of bookings.entries()) {
+    const scope = index === 0 ? "tabpanel" : "main";
+    await page
+      .getByRole(scope)
+      .getByRole("link", { name: "Book appointment" })
+      .click();
     await expect(page).toHaveURL("/appointments/new");
 
     const main = page.getByRole("main");
@@ -51,9 +56,11 @@ test("starts a fresh form after a successful booking", async ({ page }) => {
     ).toBeVisible();
   }
 
-  await expect(
-    page.getByRole("tabpanel").getByRole("heading", { name: PROVIDER.name }),
-  ).toHaveCount(2);
+  for (const [, reason] of bookings) {
+    await expect(
+      page.getByRole("tabpanel").getByText(reason, { exact: true }),
+    ).toBeVisible();
+  }
 });
 
 test("cancels and deletes from the list", async ({ page }) => {
@@ -99,7 +106,10 @@ test(
   async ({ page }) => {
     const user = await createTestUser();
     await signIn(page, user);
-    await page.getByRole("link", { name: "Book appointment" }).first().click();
+    await page
+      .getByRole("tabpanel")
+      .getByRole("link", { name: "Book appointment" })
+      .click();
 
     const main = page.getByRole("main");
     const provider = main.getByLabel("Provider", { exact: true });
