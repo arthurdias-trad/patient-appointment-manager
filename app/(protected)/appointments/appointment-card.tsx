@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { CalendarDays, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import {
   formatAppointmentTimeRange,
 } from "./_lib/clinic-time";
 import type { AppointmentPhase } from "./_lib/phase";
+import { AppointmentActions } from "./appointment-actions";
 
 const badges = {
   upcoming: { tone: "info", label: "Scheduled" },
@@ -30,16 +30,19 @@ function providerInitials(name: string): string {
 type AppointmentCardProps = {
   appointment: Appointment;
   phase: AppointmentPhase;
-  actions?: ReactNode;
 };
 
 export function AppointmentCard({
   appointment,
   phase,
-  actions,
 }: AppointmentCardProps) {
   const { provider } = appointment;
   const badge = badges[phase];
+  const date = formatAppointmentDate(appointment.startsAt);
+  const timeRange = formatAppointmentTimeRange(
+    appointment.startsAt,
+    appointment.endsAt,
+  );
 
   return (
     <Card className="flex flex-col gap-5">
@@ -65,19 +68,12 @@ export function AppointmentCard({
       <div className="grid gap-3 border-b border-border pb-5 sm:grid-cols-2 sm:gap-4">
         <div className="flex items-center gap-3">
           <CalendarDays aria-hidden className="size-5 shrink-0 text-primary" />
-          <p className="font-semibold">
-            {formatAppointmentDate(appointment.startsAt)}
-          </p>
+          <p className="font-semibold">{date}</p>
         </div>
         <div className="flex items-center gap-3">
           <Clock aria-hidden className="size-5 shrink-0 text-primary" />
           <div>
-            <p className="font-semibold">
-              {formatAppointmentTimeRange(
-                appointment.startsAt,
-                appointment.endsAt,
-              )}
-            </p>
+            <p className="font-semibold">{timeRange}</p>
             <p className="text-caption text-muted-foreground">
               30 minutes · {CLINIC_TIME_ZONE_LABEL}
             </p>
@@ -90,7 +86,11 @@ export function AppointmentCard({
         </p>
         <p className="mt-1 wrap-anywhere">{appointment.reason}</p>
       </div>
-      {actions}
+      <AppointmentActions
+        appointment={appointment}
+        phase={phase}
+        summary={{ provider: provider.name, date, time: timeRange }}
+      />
     </Card>
   );
 }

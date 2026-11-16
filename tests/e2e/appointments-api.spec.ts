@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { signIn } from "./support/session";
 import { createTestUser } from "./support/users";
 
 const PROVIDER_ID = "00000000-0000-4000-8000-000000000001";
@@ -6,17 +7,6 @@ const NO_STORE = "private, no-store";
 
 function appointmentBody(startsAt: string) {
   return { providerId: PROVIDER_ID, startsAt, reason: "Routine follow-up" };
-}
-
-async function signIn(
-  page: Page,
-  user: { email: string; password: string },
-): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(user.email);
-  await page.getByLabel("Password", { exact: true }).fill(user.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/appointments");
 }
 
 test("anonymous API mutation gets an uncached 401", async ({
