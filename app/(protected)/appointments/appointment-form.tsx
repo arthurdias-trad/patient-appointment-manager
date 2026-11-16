@@ -1,9 +1,5 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Clock } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +10,17 @@ import {
 } from "@/lib/appointments/schemas";
 import type { Appointment, Provider } from "@/lib/appointments/types";
 import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useNotice } from "../notice";
 import { sendAppointmentMutation } from "./_lib/api-client";
 import {
@@ -91,6 +98,21 @@ export function AppointmentForm({
   const [pending, setPending] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const focusErrors = useRef(false);
+  const completedValues = useRef<AppointmentFormValues | null>(null);
+
+  // Defer reset until Activity hides the form so cleared fields never flash.
+  useLayoutEffect(() => {
+    return () => {
+      const saved = completedValues.current;
+      if (!saved) return;
+      completedValues.current = null;
+      setInitial(saved);
+      setValues(saved);
+      setErrors(null);
+      setPending(false);
+      focusErrors.current = false;
+    };
+  }, []);
 
   const pristine = FIELD_ORDER.every(
     (field) => values[field] === initial[field],
@@ -167,15 +189,10 @@ export function AppointmentForm({
         : { method: "POST", path: "/api/appointments", body: prepared.body },
     );
 
-    setPending(false);
     if (result.ok) {
-      const savedValues = appointment
+      completedValues.current = appointment
         ? { ...values, reason: values.reason.trim() }
         : EMPTY_VALUES;
-      setInitial(savedValues);
-      setValues(savedValues);
-      setErrors(null);
-      focusErrors.current = false;
       showNotice(
         appointment
           ? "Your changes have been saved."
@@ -184,6 +201,7 @@ export function AppointmentForm({
       router.push("/appointments");
       return;
     }
+    setPending(false);
     showErrors(toFormErrors(result.status, result.body));
   }
 
