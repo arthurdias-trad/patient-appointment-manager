@@ -68,6 +68,7 @@ test("appointment list and dialog", { tag: "@mobile" }, async ({ page }) => {
     await dialog.evaluate((el) => el.scrollWidth - el.clientWidth),
     "dialog scrolls horizontally",
   ).toBeLessThanOrEqual(0);
+  await expect(dialog).toBeInViewport({ ratio: 1 });
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
