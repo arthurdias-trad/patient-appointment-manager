@@ -7,10 +7,9 @@ import {
   type AppointmentFormValues,
 } from "@/app/(protected)/appointments/_lib/form-model";
 import type { Appointment } from "@/lib/appointments/types";
-import { PROVIDER_IDS } from "@/tests/integration/support/db";
 import { expect, test } from "vitest";
 
-const PROVIDER_ID = PROVIDER_IDS[0];
+const PROVIDER_ID = "00000000-0000-4000-8000-000000000001";
 
 const valid: AppointmentFormValues = {
   providerId: PROVIDER_ID,

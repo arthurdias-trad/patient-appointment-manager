@@ -1,18 +1,29 @@
 import type { ApiErrorBody, FieldErrors } from "@/lib/api/errors";
 import { errorMessageFor } from "./api-client";
-import type { AppointmentFormErrors } from "./form-model";
+import type { AppointmentFormErrors, AppointmentFormField } from "./form-model";
+
+const FIELD_TARGETS: Record<keyof FieldErrors, AppointmentFormField | null> = {
+  providerId: "providerId",
+  startsAt: "time",
+  reason: "reason",
+  status: null,
+};
 
 export function fromFieldErrors(
   f: FieldErrors | undefined,
   formErrors: string[] = [],
 ): AppointmentFormErrors {
   const fieldErrors: AppointmentFormErrors["fieldErrors"] = {};
-  if (f?.providerId) fieldErrors.providerId = f.providerId;
-  if (f?.startsAt) fieldErrors.time = f.startsAt;
-  if (f?.reason) fieldErrors.reason = f.reason;
+  const messages = [...formErrors];
+  for (const [source, target] of Object.entries(FIELD_TARGETS)) {
+    const errors = f?.[source as keyof FieldErrors];
+    if (!errors) continue;
+    if (target === null) messages.push(...errors);
+    else fieldErrors[target] = errors;
+  }
   return {
     fieldErrors,
-    formErrors: [...formErrors, ...(f?.status ?? [])],
+    formErrors: messages,
     signInRequired: false,
   };
 }
