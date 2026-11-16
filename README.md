@@ -64,10 +64,10 @@ Supabase clients live in `lib/supabase/`: `client.ts` for Client Components and 
 
 Start the local Supabase stack before running tests, with migrations applied and provider seeds loaded. The pre-push hook runs lint, build, and `npm test`; it does not run pgTAP or Playwright. CI runs both separately.
 
-- **Unit** (Vitest): password rules, the breached-password check, redirect rules, appointment input validation, and the database-to-API error mapping.
+- **Unit** (Vitest): password rules, the breached-password check, redirect rules, appointment input validation, the database-to-API error mapping, appointment phases, Eastern Time conversion across daylight-saving changes, and the form's request preparation and error mapping.
 - **Integration** (Vitest, local Supabase): Auth settings, profile creation, provider reads and write denial, appointment ownership isolation, protected columns, duration and overlap constraints, scheduling rules, timestamps, and soft deletion. Clients use the publishable key and separate user sessions. The appointment service and Route Handlers run against the same database, with only the server client factory mocked.
 - **Database** (pgTAP): table and column privileges, effective defaults on new objects, RLS configuration, policy metadata, trigger wiring, and function permissions/settings. A privileged fixture creates an in-progress appointment inside a rolled-back transaction; behavior is then tested as its authenticated owner.
-- **End-to-end** (Playwright, Chromium): auth flows in a browser, against a local Have I Been Pwned stub, and the appointment API from a signed-in browser: cookie sessions, refused cross-site requests, and uncached responses.
+- **End-to-end** (Playwright, Chromium): auth flows in a browser, against a local Have I Been Pwned stub, the appointment API from a signed-in browser (cookie sessions, refused cross-site requests, and uncached responses), and the appointment UI: booking, editing, cancelling, and deleting through the forms and list, a past start reported next to the time field, tab history, and a fresh form after booking.
 
 The check against the real Have I Been Pwned API is manual. Run it after changing the checker:
 
@@ -150,6 +150,8 @@ Request bodies are strict: fields the client may not set, such as `patientId`, a
 ## Managing appointments
 
 Appointments are grouped into Upcoming, Past, and Cancelled tabs, with the selected tab preserved in the URL. Times use the clinic's timezone, Eastern Time. Cancellation is final. Upcoming appointments must be cancelled before the interface offers deletion; started, past, and cancelled appointments can be deleted directly. Deletion hides the record through the soft-delete mechanism described above.
+
+The booking form offers starts from 8:15 a.m. to 4:30 p.m. Eastern Time in 15-minute steps, so every visit ends by 5:00 p.m. This window is a demonstration rule applied only in the form; the API does not enforce this window. A production scheduler would offer slots from provider availability. Edits send only the fields that changed, and the database still decides whether a start is in the future.
 
 ## Security
 
