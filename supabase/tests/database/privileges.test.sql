@@ -180,8 +180,8 @@ values (
   '20000000-0000-4000-8000-000000000001',
   '10000000-0000-4000-8000-000000000001',
   '00000000-0000-4000-8000-000000000001',
-  now() - interval '15 minutes',
-  now() + interval '15 minutes',
+  date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00'),
+  date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00') + interval '30 minutes',
   'Synthetic follow-up',
   now() - interval '1 hour',
   now() - interval '1 hour'
@@ -205,7 +205,8 @@ select throws_ok(
 );
 select throws_ok(
   $$update public.appointments
-    set starts_at = now() + interval '1 day', ends_at = now() + interval '1 day 30 minutes'
+    set starts_at = date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00') + interval '1 day',
+        ends_at = date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00') + interval '1 day 30 minutes'
     where id = '20000000-0000-4000-8000-000000000001'$$,
   'P0001',
   null,

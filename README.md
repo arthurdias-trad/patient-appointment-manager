@@ -110,7 +110,7 @@ The read policies are `Patients can view own profile`, `Patients can view all pr
 
 ### Scheduling and deletion
 
-Appointments last exactly 30 minutes, enforced by a database CHECK. A GiST exclusion constraint prevents overlapping scheduled, non-deleted appointments for the same patient. End times are exclusive, so back-to-back appointments are allowed. Cancellation and deletion free the slot. Different patients can book the same time; provider availability is outside the current model.
+Appointments last exactly 30 minutes and start on 15-minute boundaries, both enforced by database CHECKs. The alignment check is computed from the absolute time, so it gives the same result in every timezone. A GiST exclusion constraint prevents overlapping scheduled, non-deleted appointments for the same patient. End times are exclusive, so back-to-back appointments are allowed. Cancellation and deletion free the slot. Different patients can book the same time; provider availability is outside the current model.
 
 Database triggers reject bookings or rescheduling at or before the current database time. Business fields cannot be edited once the original appointment has started or is cancelled. Cancellation is final; rebooking creates a new row. The edit cutoff uses the original start time, even if an update tries to move it into the future. Status is stored as `scheduled` or `cancelled`; the derived `past` state means a scheduled appointment whose end has passed.
 
@@ -160,5 +160,5 @@ Auth forms submit to Server Actions in `app/(auth)/actions.ts`.
 - Deleting an Auth user cascades to appointments and hard-deletes them; account deletion is outside the assessment scope and requires a retention decision before implementation.
 - Profile names are a signup snapshot and do not sync later Auth metadata edits.
 - Hosted provider seeding is manual. Deployment must also verify the delete function owner's RLS bypass capability; it has been verified locally only.
-- There are no provider accounts, availability calendars, or provider-wide conflict checks. Appointment durations are fixed; slot alignment and timezone input/display remain UI/API decisions.
+- There are no provider accounts, availability calendars, or provider-wide conflict checks. Appointment durations are fixed; timezone display is a UI decision.
 - `appointments.provider_id` is deliberately unindexed; add an index when provider-based queries or deletion require it.
