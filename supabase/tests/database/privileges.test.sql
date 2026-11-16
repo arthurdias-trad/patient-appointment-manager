@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(69);
+select plan(70);
 
 select is_empty(
   $$
@@ -186,6 +186,16 @@ values (
   now() - interval '1 hour',
   now() - interval '1 hour'
 );
+insert into public.appointments (id, patient_id, provider_id, starts_at, ends_at, reason, status)
+values (
+  '20000000-0000-4000-8000-000000000002',
+  '10000000-0000-4000-8000-000000000001',
+  '00000000-0000-4000-8000-000000000001',
+  date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00'),
+  date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00') + interval '30 minutes',
+  'Synthetic follow-up',
+  'cancelled'
+);
 alter table public.appointments enable trigger check_not_in_past_or_canceled;
 
 set local role authenticated;
@@ -193,13 +203,13 @@ select set_config('request.jwt.claims', '{"sub":"10000000-0000-4000-8000-0000000
 
 select throws_ok(
   $$update public.appointments set reason = 'Synthetic check-in' where id = '20000000-0000-4000-8000-000000000001'$$,
-  'P0001',
+  'AP002',
   null,
   'started appointment cannot be edited'
 );
 select throws_ok(
   $$update public.appointments set status = 'cancelled' where id = '20000000-0000-4000-8000-000000000001'$$,
-  'P0001',
+  'AP002',
   null,
   'started appointment cannot be cancelled'
 );
@@ -208,9 +218,15 @@ select throws_ok(
     set starts_at = date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00') + interval '1 day',
         ends_at = date_bin('15 minutes', now(), timestamptz '2000-01-01 00:00:00+00') + interval '1 day 30 minutes'
     where id = '20000000-0000-4000-8000-000000000001'$$,
-  'P0001',
+  'AP002',
   null,
   'started appointment cannot be moved to the future'
+);
+select throws_ok(
+  $$update public.appointments set reason = 'Synthetic check-in' where id = '20000000-0000-4000-8000-000000000002'$$,
+  'AP003',
+  null,
+  'started cancelled appointment reports the cancellation'
 );
 
 select is(

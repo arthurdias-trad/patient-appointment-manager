@@ -373,7 +373,7 @@ test("rejects booking in the past", async () => {
     reason: "Synthetic follow-up",
   });
 
-  expect(error?.code).toBe("P0001");
+  expect(error?.code).toBe("AP001");
 });
 
 test("rejects rescheduling into the past", async () => {
@@ -383,7 +383,7 @@ test("rejects rescheduling into the past", async () => {
     .from("appointments")
     .update(pastSlot())
     .eq("id", row.id);
-  expect(error?.code).toBe("P0001");
+  expect(error?.code).toBe("AP001");
 
   const { data } = await alice.client
     .from("appointments")
@@ -409,7 +409,7 @@ test("cancelled appointment cannot be edited or reinstated", async () => {
       .from("appointments")
       .update(change)
       .eq("id", row.id);
-    expect(error?.code).toBe("P0001");
+    expect(error?.code).toBe("AP003");
   }
 });
 
