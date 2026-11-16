@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { controlClassName, Field } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signIn, type AuthFormState } from "../actions";
 
 const initialState: AuthFormState = {};
@@ -39,12 +40,10 @@ export function LoginForm({ next }: { next: string }) {
         errors={state.fieldErrors?.password}
       >
         {(aria) => (
-          <input
+          <PasswordInput
             {...aria}
             name="password"
-            type="password"
             autoComplete="current-password"
-            className={controlClassName}
           />
         )}
       </Field>
