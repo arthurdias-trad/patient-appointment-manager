@@ -58,7 +58,9 @@ test("sign-up validates on the server, then creates a persistent session", async
 
   await submit("a-valid-password-123");
   await expect(page).toHaveURL("/appointments");
-  await expect(page.getByText("Signed in as E2E Patient")).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByText("E2E Patient"),
+  ).toBeVisible();
 
   await page.reload();
   await expect(page).toHaveURL("/appointments");
