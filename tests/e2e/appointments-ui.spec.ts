@@ -166,6 +166,7 @@ test("shows a past start next to the time field", async ({ page }) => {
   await expect(startTime).toHaveAccessibleDescription(
     /Choose a time in the future\./,
   );
+  await expect(startTime).toBeFocused();
   await expect(startTime).toHaveAttribute("aria-invalid", "true");
   await expect(page).toHaveURL("/appointments/new");
 });
