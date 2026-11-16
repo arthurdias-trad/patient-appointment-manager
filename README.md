@@ -67,7 +67,7 @@ Start the local Supabase stack before running tests, with migrations applied and
 - **Unit** (Vitest): password rules, the breached-password check, redirect rules, appointment input validation, and the database-to-API error mapping.
 - **Integration** (Vitest, local Supabase): Auth settings, profile creation, provider reads and write denial, appointment ownership isolation, protected columns, duration and overlap constraints, scheduling rules, timestamps, and soft deletion. Clients use the publishable key and separate user sessions. The appointment service and Route Handlers run against the same database, with only the server client factory mocked.
 - **Database** (pgTAP): table and column privileges, effective defaults on new objects, RLS configuration, policy metadata, trigger wiring, and function permissions/settings. A privileged fixture creates an in-progress appointment inside a rolled-back transaction; behavior is then tested as its authenticated owner.
-- **End-to-end** (Playwright, Chromium): auth flows in a browser, against a local Have I Been Pwned stub.
+- **End-to-end** (Playwright, Chromium): auth flows in a browser, against a local Have I Been Pwned stub, and the appointment API from a signed-in browser: cookie sessions, refused cross-site requests, and uncached responses.
 
 The check against the real Have I Been Pwned API is manual. Run it after changing the checker:
 
