@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => ({
         test: {
           name: "integration",
           environment: "node",
+          setupFiles: ["./tests/integration/setup.ts"],
           include: ["tests/integration/**/*.test.ts"],
         },
       },

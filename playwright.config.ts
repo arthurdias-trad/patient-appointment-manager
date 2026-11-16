@@ -1,9 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 import { existsSync } from "node:fs";
+import { assertLocalSupabase } from "./tests/support/local-supabase";
 
 if (existsSync(".env.local")) {
   process.loadEnvFile(".env.local");
 }
+
+assertLocalSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 export default defineConfig({
   testDir: "./tests/e2e",
