@@ -64,8 +64,8 @@ Supabase clients live in `lib/supabase/`: `client.ts` for Client Components and 
 
 Start the local Supabase stack before running tests, with migrations applied and provider seeds loaded. The pre-push hook runs lint, build, and `npm test`; it does not run pgTAP or Playwright. CI runs both separately.
 
-- **Unit** (Vitest): password rules, the breached-password check, and redirect rules.
-- **Integration** (Vitest, local Supabase): Auth settings, profile creation, provider reads and write denial, appointment ownership isolation, protected columns, duration and overlap constraints, scheduling rules, timestamps, and soft deletion. Clients use the publishable key and separate user sessions.
+- **Unit** (Vitest): password rules, the breached-password check, redirect rules, appointment input validation, and the database-to-API error mapping.
+- **Integration** (Vitest, local Supabase): Auth settings, profile creation, provider reads and write denial, appointment ownership isolation, protected columns, duration and overlap constraints, scheduling rules, timestamps, and soft deletion. Clients use the publishable key and separate user sessions. The appointment service and Route Handlers run against the same database, with only the server client factory mocked.
 - **Database** (pgTAP): table and column privileges, effective defaults on new objects, RLS configuration, policy metadata, trigger wiring, and function permissions/settings. A privileged fixture creates an in-progress appointment inside a rolled-back transaction; behavior is then tested as its authenticated owner.
 - **End-to-end** (Playwright, Chromium): auth flows in a browser, against a local Have I Been Pwned stub.
 
@@ -88,9 +88,9 @@ erDiagram
 
 `auth_users` in the diagram represents Supabase's `auth.users` table.
 
-- **profiles:** one row per Auth user, with structured names copied at signup. The signup trigger trims names and converts empty values to NULL.
-- **providers:** a synthetic, authenticated-read-only directory of names and specialties, populated by the seed file.
-- **appointments:** links a profile (`patient_id`) and provider with start/end times, reason, status, and creation/update/deletion timestamps.
+- **profiles:** one row per Auth user, with structured names copied at signup. The signup trigger trims names and converts empty values to NULL. Names are a snapshot and don't follow later Auth metadata edits.
+- **providers:** a synthetic, authenticated-read-only directory of names and specialties, populated by the seed file. Providers are directory entries, without login accounts.
+- **appointments:** links a profile (`patient_id`) and provider with start/end times, reason, status, and creation/update/deletion timestamps. `provider_id` is deliberately unindexed until provider-based queries or deletion need it.
 
 ### Grants and policies
 
@@ -135,6 +135,18 @@ Auth forms submit to Server Actions in `app/(auth)/actions.ts`.
 
 `proxy.ts` refreshes the session and redirects signed-out visitors to `/login`. Every page except `/`, `/login`, and `/signup` requires a session. The proxy check is only optimistic: pages verify the session with `getCurrentUser()` in `lib/auth/dal.ts`.
 
+## API
+
+The API uses cookie authentication and is intended for the same-origin web application. Client Components change appointments through three Route Handlers. Server Components read through the server-only `lib/appointments/` service directly, so there are no read endpoints; [ADR 0003](docs/adr/0003-share-appointment-logic-between-route-handlers-and-server-components.md) explains why. Both paths share the same session check, validation, and error mapping, and RLS still decides which rows a user can reach.
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/appointments` | Book an appointment |
+| `PATCH /api/appointments/[id]` | Reschedule, edit, or cancel |
+| `DELETE /api/appointments/[id]` | Soft-delete |
+
+Request bodies are strict: fields the client may not set, such as `patientId`, are rejected rather than ignored. Starts need an explicit timezone offset and must fall on a quarter hour; the server computes the end. Errors share one shape, `{ error: { code, message, fieldErrors?, formErrors? } }`, so the UI can show each message next to the right field.
+
 ## Security
 
 - Passwords follow [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html): at least 15 characters, no composition rules, and rejected if they appear in a known breach. Only a 5-character hash prefix is sent to Have I Been Pwned, and sign-up is refused if the check is unavailable. See [ADR 0001](docs/adr/0001-screen-sign-up-passwords-against-known-breaches.md) for the decision and trade-offs.
@@ -144,21 +156,21 @@ Auth forms submit to Server Actions in `app/(auth)/actions.ts`.
 - Migrations revoke the API roles' default table, sequence, and function grants in `public`. A global revoke removes function execution through `PUBLIC`. Each application object then gets explicit minimal grants. `service_role` receives no grants on application objects, despite its RLS bypass capability.
 - RLS does not cover TRUNCATE, so its privilege is explicitly excluded alongside other unnecessary administrative permissions. Column checks also reject unexpected grants, including grants on future columns.
 - The `private` schema is not exposed by the Data API and has no API-role privileges. Its trigger helpers pin empty search paths. Only signup profile creation and the public delete function use SECURITY DEFINER; scheduling and timestamp helpers use invoker security.
-- Cross-user appointment reads return no rows. Updates targeting foreign, deleted, or nonexistent IDs return no rows; the delete RPC returns false for all three. These operations do not distinguish whether another user's row exists.
+- Cross-user appointment reads return no rows. Updates targeting foreign, deleted, or nonexistent IDs return no rows; the delete RPC returns false for all three. These operations, and the API's 404s, do not distinguish whether another user's row exists.
 - The application never uses the secret key; only the URL and publishable key are public.
 - Application code does not log appointment reasons or names.
+- API mutations require an `Origin` matching the deployment's public scheme, host, and port, and POST and PATCH also require JSON bodies. Route Handlers don't get the Server Actions origin check, and `SameSite=Lax` cookies alone don't stop every cross-site request.
+- Mutation responses are `private, no-store` and never include raw database errors.
+
+## Deployment notes
+
+- The hosted Supabase project must match `supabase/config.toml`: minimum password length 15, email confirmations off.
+- Provider seeding on the hosted project is manual.
+- The delete function relies on its owner bypassing RLS. This is verified locally; verify it on the hosted project too.
 
 ## Known limitations
 
-- Email confirmation is off, so email ownership isn't verified.
-- There is no password reset.
-- Calling the Supabase Auth API directly skips the breached-password check. Supabase's hosted leaked-password protection would close this.
-- Auth rate limits apply per server IP, so all users share them.
-- After sign-out, the current access token stays valid until it expires (up to an hour).
-- The hosted Supabase project must match `supabase/config.toml`: minimum password length 15, email confirmations off.
-- Soft deletion stores a deletion timestamp, not a history of changes. Deleted rows remain stored; a production retention/purge policy is outside this assessment's scope.
-- Deleting an Auth user cascades to appointments and hard-deletes them; account deletion is outside the assessment scope and requires a retention decision before implementation.
-- Profile names are a signup snapshot and do not sync later Auth metadata edits.
-- Hosted provider seeding is manual. Deployment must also verify the delete function owner's RLS bypass capability; it has been verified locally only.
-- There are no provider accounts, availability calendars, or provider-wide conflict checks. Appointment durations are fixed; timezone display is a UI decision.
-- `appointments.provider_id` is deliberately unindexed; add an index when provider-based queries or deletion require it.
+- **Demo authentication:** email confirmation is off, so email ownership isn't verified, and there is no password reset. Auth rate limits apply per server IP, so all users share them. Calling the Supabase Auth API directly skips the breached-password check; Supabase's hosted leaked-password protection would close this. After sign-out, the current access token stays valid until it expires (up to an hour).
+- **Scheduling:** provider availability and provider-wide conflicts are not checked, so different patients can book the same provider at the same time.
+- **Retention:** soft deletion records when a row was deleted, not a history of changes, and deleted rows stay stored without a purge policy. Deleting an Auth user cascades and hard-deletes their appointments, so account deletion needs a retention decision first.
+- **Pagination:** the appointment list isn't paginated and is capped at 1000 rows.
