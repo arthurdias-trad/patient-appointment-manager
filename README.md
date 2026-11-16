@@ -176,6 +176,10 @@ The GitHub `production` environment holds secrets `SUPABASE_ACCESS_TOKEN`, `SUPA
 
 Database migrations run before deployment and are not automatically rolled back if it fails. They must remain compatible with the currently deployed app.
 
+### Demo appointments
+
+Create two demo accounts through the application, then run [scripts/demo-appointments.sql](scripts/demo-appointments.sql) in the hosted Supabase SQL Editor after replacing its two profile-ID placeholders. Each account receives two past, two upcoming, and one cancelled synthetic appointment. Rerunning restores those demo appointments without changing unrelated appointments.
+
 ## Known limitations
 
 - **Demo authentication:** email confirmation is off, so email ownership isn't verified, and there is no password reset. Auth rate limits apply per server IP, so all users share them. Calling the Supabase Auth API directly skips the breached-password check; Supabase's hosted leaked-password protection would close this. After sign-out, the current access token stays valid until it expires (up to an hour).
