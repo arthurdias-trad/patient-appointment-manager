@@ -98,6 +98,79 @@ test("cancels and deletes from the list", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("changes only the selected appointment", async ({ page }) => {
+  const user = await createTestUser();
+  await signIn(page, user);
+  await createAppointment(page, "2032-01-05T14:00:00Z", "First appointment");
+  await createAppointment(page, "2032-01-06T15:00:00Z", "Second appointment");
+  const otherId = await createAppointment(
+    page,
+    "2032-01-07T15:00:00Z",
+    "Other cancelled appointment",
+  );
+  const cancelled = await page.request.patch(`/api/appointments/${otherId}`, {
+    headers: { origin: new URL(page.url()).origin },
+    data: { status: "cancelled" },
+  });
+  expect(cancelled.status()).toBe(200);
+  await page.goto("/appointments");
+
+  const panel = page.getByRole("tabpanel");
+  const card = (reason: string) =>
+    panel.getByRole("listitem").filter({ hasText: reason });
+  const first = card("First appointment");
+  const second = card("Second appointment");
+  const other = card("Other cancelled appointment");
+  const dialog = page.getByRole("alertdialog");
+
+  await second.getByRole("link", { name: "Edit appointment" }).click();
+  const main = page.getByRole("main");
+  await expect(main.getByLabel("Reason for appointment")).toHaveValue(
+    "Second appointment",
+  );
+  await main.getByLabel("Start time").selectOption("11:00");
+  await main.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(page).toHaveURL("/appointments");
+  await expect(page.getByText("Your changes have been saved.")).toBeVisible();
+  await expect(second.getByText(/Tuesday, Jan 6, 2032/)).toBeVisible();
+  await expect(second.getByText(/11:00\s–\s11:30\sAM/)).toBeVisible();
+  await expect(first.getByText(/Monday, Jan 5, 2032/)).toBeVisible();
+  await expect(first.getByText(/9:00\s–\s9:30\sAM/)).toBeVisible();
+
+  await second.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog.getByText(/Tuesday, Jan 6, 2032/)).toBeVisible();
+  await expect(dialog.getByText(/11:00\s–\s11:30\sAM/)).toBeVisible();
+  await expect(dialog.getByText(/Monday, Jan 5, 2032/)).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Cancel appointment" }).click();
+  await expect(page.getByRole("status")).toHaveText("Appointment cancelled.");
+  await expect(first.getByText(/Monday, Jan 5, 2032/)).toBeVisible();
+  await expect(second).toHaveCount(0);
+
+  await page.getByRole("tab", { name: /Cancelled/ }).click();
+  await expect(page).toHaveURL("/appointments?tab=cancelled");
+  await expect(second.getByText(/Tuesday, Jan 6, 2032/)).toBeVisible();
+  await expect(other.getByText(/Wednesday, Jan 7, 2032/)).toBeVisible();
+  await expect(first).toHaveCount(0);
+
+  await second.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(dialog.getByText(/Tuesday, Jan 6, 2032/)).toBeVisible();
+  await expect(dialog.getByText(/Wednesday, Jan 7, 2032/)).toHaveCount(0);
+  await expect(dialog.getByText(/Monday, Jan 5, 2032/)).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Delete appointment" }).click();
+  await expect(page.getByRole("status")).toHaveText("Appointment deleted.");
+  await expect(second).toHaveCount(0);
+  await expect(other.getByText(/Wednesday, Jan 7, 2032/)).toBeVisible();
+
+  await page.reload();
+  await expect(other.getByText(/Wednesday, Jan 7, 2032/)).toBeVisible();
+  await expect(second).toHaveCount(0);
+  await page.getByRole("tab", { name: /Upcoming/ }).click();
+  await expect(first.getByText(/Monday, Jan 5, 2032/)).toBeVisible();
+  await expect(first.getByText(/9:00\s–\s9:30\sAM/)).toBeVisible();
+  await expect(second).toHaveCount(0);
+});
+
 test(
   "books, edits, cancels, and deletes through the UI",
   {
