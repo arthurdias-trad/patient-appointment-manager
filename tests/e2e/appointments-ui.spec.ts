@@ -170,3 +170,28 @@ test("shows a past start next to the time field", async ({ page }) => {
   await expect(startTime).toHaveAttribute("aria-invalid", "true");
   await expect(page).toHaveURL("/appointments/new");
 });
+
+test("another patient's edit link shows not found", async ({ page }) => {
+  const owner = await createTestUser();
+  await signIn(page, owner);
+  const id = await createAppointment(
+    page,
+    "2032-01-05T14:00:00Z",
+    "Owner-only reason",
+  );
+
+  await page.context().clearCookies();
+  const other = await createTestUser();
+  await signIn(page, other);
+
+  await page.goto(`/appointments/${id}/edit`);
+  await expect(
+    page.getByRole("heading", { name: "Appointment not found" }),
+  ).toBeVisible();
+  await expect(page.getByText("Owner-only reason")).toHaveCount(0);
+
+  await page.goto("/appointments");
+  await expect(
+    page.getByRole("tabpanel").getByText("No upcoming appointments"),
+  ).toBeVisible();
+});
