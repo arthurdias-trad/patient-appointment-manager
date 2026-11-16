@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { PROVIDER } from "./support/appointments";
 import { signIn } from "./support/session";
 import { createTestUser } from "./support/users";
 
-const PROVIDER_ID = "00000000-0000-4000-8000-000000000001";
 const NO_STORE = "private, no-store";
 
 function appointmentBody(startsAt: string) {
-  return { providerId: PROVIDER_ID, startsAt, reason: "Routine follow-up" };
+  return { providerId: PROVIDER.id, startsAt, reason: "Routine follow-up" };
 }
 
 test("anonymous API mutation gets an uncached 401", async ({

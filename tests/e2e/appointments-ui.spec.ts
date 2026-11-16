@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createAppointment, PROVIDER } from "./support/appointments";
 import { signIn } from "./support/session";
 import { createTestUser } from "./support/users";
-
-const PROVIDER_ID = "00000000-0000-4000-8000-000000000001";
 
 async function confirmAction(page: Page, trigger: string, confirm: string) {
   await page
@@ -40,7 +39,7 @@ test("starts a fresh form after a successful booking", async ({ page }) => {
 
     await main
       .getByLabel("Provider", { exact: true })
-      .selectOption(PROVIDER_ID);
+      .selectOption(PROVIDER.id);
     await main.getByLabel("Appointment date").fill("2032-01-05");
     await main.getByLabel("Start time").selectOption(time);
     await main.getByLabel("Reason for appointment").fill(reason);
@@ -55,29 +54,21 @@ test("starts a fresh form after a successful booking", async ({ page }) => {
   await expect(
     page
       .getByRole("tabpanel")
-      .getByRole("heading", { name: "Dr. Avery Quill" }),
+      .getByRole("heading", { name: PROVIDER.name }),
   ).toHaveCount(2);
 });
 
-test("cancels and deletes from the list", async ({ page, baseURL }) => {
+test("cancels and deletes from the list", async ({ page }) => {
   const user = await createTestUser();
   await signIn(page, user);
-  const created = await page.request.post("/api/appointments", {
-    headers: { origin: baseURL! },
-    data: {
-      providerId: PROVIDER_ID,
-      startsAt: "2032-01-05T14:00:00Z",
-      reason: "Routine follow-up",
-    },
-  });
-  expect(created.status()).toBe(201);
+  await createAppointment(page, "2032-01-05T14:00:00Z");
   await page.goto("/appointments");
 
   const upcomingTab = page.getByRole("tab", { name: /Upcoming/ });
   const panel = page.getByRole("tabpanel");
   await expect(upcomingTab).toHaveAttribute("aria-selected", "true");
   await expect(
-    panel.getByRole("heading", { name: "Dr. Avery Quill" }),
+    panel.getByRole("heading", { name: PROVIDER.name }),
   ).toBeVisible();
   await expect(panel.getByText(/Monday, Jan 5, 2032/)).toBeVisible();
 
@@ -118,7 +109,7 @@ test(
     const startTime = main.getByLabel("Start time");
     const reason = main.getByLabel("Reason for appointment");
     await provider.selectOption({
-      label: "Dr. Avery Quill · Developmental Pediatrics",
+      label: `${PROVIDER.name} · ${PROVIDER.specialty}`,
     });
     await date.fill("2032-01-05");
     await startTime.selectOption("09:00");
@@ -135,7 +126,7 @@ test(
     await expect(panel.getByText(/9:00\s–\s9:30\sAM/)).toBeVisible();
 
     await panel.getByRole("link", { name: "Edit appointment" }).click();
-    await expect(provider).toHaveValue(PROVIDER_ID);
+    await expect(provider).toHaveValue(PROVIDER.id);
     await expect(date).toHaveValue("2032-01-05");
     await expect(startTime).toHaveValue("09:00");
     await expect(reason).toHaveValue("Routine follow-up");
@@ -164,7 +155,7 @@ test("shows a past start next to the time field", async ({ page }) => {
 
   const main = page.getByRole("main");
   const startTime = main.getByLabel("Start time");
-  await main.getByLabel("Provider", { exact: true }).selectOption(PROVIDER_ID);
+  await main.getByLabel("Provider", { exact: true }).selectOption(PROVIDER.id);
   await main.getByLabel("Appointment date").fill(yesterday);
   await startTime.selectOption("09:00");
   await main.getByLabel("Reason for appointment").fill("Routine follow-up");
