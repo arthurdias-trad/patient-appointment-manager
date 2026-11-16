@@ -188,7 +188,9 @@ export function AppointmentActions({
         <p className="text-caption text-muted-foreground">
           {phase === "cancelled"
             ? "Kept in your appointment history"
-            : "This appointment has started or ended"}
+            : phase === "in_progress"
+              ? "This appointment is in progress."
+              : "This appointment has already ended."}
         </p>
       )}
       {allowed.cancel && (
